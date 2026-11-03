@@ -216,14 +216,22 @@ func (a *App) askVeriProv(ctx context.Context, read reader) (origin, profile str
 	if err != nil {
 		return "", "", err
 	}
+	// Profiles are shown quoted, so an empty default reads [""]; typing ""
+	// selects the empty profile when the default is another.
+	askProfile := func(label, def string, check func(string) error) (string, error) {
+		answer, err := read(fmt.Sprintf("%s [%q]", label, def), "", func(s string) error {
+			return check(unquoteProfile(s, def))
+		})
+		return unquoteProfile(answer, def), err
+	}
 	switch len(entries) {
 	case 0:
-		profile, err = read("Bootstrap profile", "", config.CheckProfile)
+		profile, err = askProfile("Bootstrap profile", "", config.CheckProfile)
 		return origin, profile, err
 	case 1:
 		profile = entries[0].Profile
 	default:
-		profile, err = read("Bootstrap profile, one of "+bootstrap.Profiles(entries), entries[0].Profile, func(s string) error {
+		profile, err = askProfile("Bootstrap profile, one of "+bootstrap.Profiles(entries), entries[0].Profile, func(s string) error {
 			if !slices.ContainsFunc(entries, func(e bootstrap.Entry) bool { return e.Profile == s }) {
 				return fmt.Errorf("VeriProv has no Bootstrap with profile %q", s)
 			}
@@ -239,6 +247,17 @@ func (a *App) askVeriProv(ctx context.Context, read reader) (origin, profile str
 	}
 	a.printf("  Bootstrap with profile %q, HOST_DATA %x\n", profile, guest.HostData(data))
 	return origin, profile, nil
+}
+
+// unquoteProfile maps an empty answer to def and `""` to the empty profile.
+func unquoteProfile(answer, def string) string {
+	switch answer {
+	case "":
+		return def
+	case `""`:
+		return ""
+	}
+	return answer
 }
 
 // render writes ans as a commented config file.

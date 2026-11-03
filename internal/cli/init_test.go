@@ -134,9 +134,25 @@ func TestInitProfiles(t *testing.T) {
 	// The VeriProv serves two profiles: an unknown one is asked again.
 	e := newInitEnv(t, tag, "\n\nVERIPROV\nc\nb\n\n\n\n", "a", "b")
 	e.expect(t, 0)
-	e.contains(t, `Bootstrap profile, one of "a", "b" [a]: `, `no Bootstrap with profile "c"`, `Bootstrap with profile "b", HOST_DATA `)
+	e.contains(t, `Bootstrap profile, one of "a", "b" ["a"]: `, `no Bootstrap with profile "c"`, `Bootstrap with profile "b", HOST_DATA `)
 	c, err := config.Load(e.config)
 	if err != nil || c.Profile != "b" {
+		t.Fatalf("%+v, %v", c, err)
+	}
+}
+
+func TestInitEmptyProfileDefault(t *testing.T) {
+	// The empty profile is the default and shows as [""]; Enter keeps it.
+	e := newInitEnv(t, tag, "\n\nVERIPROV\n\n\n\n\n", "", "test")
+	e.expect(t, 0)
+	e.contains(t, `Bootstrap profile, one of "", "test" [""]: `, `Bootstrap with profile "", HOST_DATA `)
+	if c, err := config.Load(e.config); err != nil || c.Profile != "" {
+		t.Fatalf("%+v, %v", c, err)
+	}
+	// Typing "" picks the empty profile when another is the default.
+	e = newInitEnv(t, tag, "\n\nVERIPROV\n\"\"\n\n\n\n", "a", "")
+	e.expect(t, 0)
+	if c, err := config.Load(e.config); err != nil || c.Profile != "" {
 		t.Fatalf("%+v, %v", c, err)
 	}
 }
@@ -145,7 +161,7 @@ func TestInitVeriProvUnreachable(t *testing.T) {
 	// A VeriProv that cannot be reached is kept with a warning.
 	e := newInitEnv(t, tag, "\n\nhttps://127.0.0.1:1\n\n\n\n\n")
 	e.expect(t, 0)
-	e.contains(t, "verideploy fetch will try again", "Bootstrap profile: ")
+	e.contains(t, "verideploy fetch will try again", `Bootstrap profile [""]: `)
 	c, err := config.Load(e.config)
 	if err != nil || c.VeriProv != "https://127.0.0.1:1" {
 		t.Fatalf("%+v, %v", c, err)
