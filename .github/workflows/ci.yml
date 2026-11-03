@@ -58,7 +58,7 @@ jobs:
           verideploy version
           dpkg -L verideploy
           sudo apt-get remove -y verideploy
-          ! command -v verideploy
+          test ! -e /usr/bin/verideploy
 
       # YAML parsing alone cannot catch workflow mistakes; only actionlint does.
       - name: actionlint
