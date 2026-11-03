@@ -11,10 +11,10 @@ import (
 
 	"github.com/verirelay/protocol/guest"
 
-	"github.com/verirelay/deploy/internal/config"
-	"github.com/verirelay/deploy/internal/fake"
-	"github.com/verirelay/deploy/internal/host"
-	"github.com/verirelay/deploy/internal/network"
+	"github.com/verirelay/verideploy/internal/config"
+	"github.com/verirelay/verideploy/internal/fake"
+	"github.com/verirelay/verideploy/internal/host"
+	"github.com/verirelay/verideploy/internal/network"
 )
 
 type initEnv struct {
@@ -119,7 +119,7 @@ func TestInitInteractive(t *testing.T) {
 		"must be an HTTPS origin",
 		`Bootstrap with profile "", HOST_DATA `+hex.EncodeToString(hostData[:]),
 		"vCPU count must be a positive whole number",
-		"Next: sudo verideploy fetch, then verideploy plan.",
+		"Next: verideploy fetch, then verideploy plan.",
 	)
 	c, err := config.Load(e.config)
 	if err != nil {

@@ -17,9 +17,9 @@ import (
 
 	"github.com/verirelay/protocol/guest"
 
-	"github.com/verirelay/deploy/internal/bootstrap"
-	"github.com/verirelay/deploy/internal/config"
-	"github.com/verirelay/deploy/internal/release"
+	"github.com/verirelay/verideploy/internal/bootstrap"
+	"github.com/verirelay/verideploy/internal/config"
+	"github.com/verirelay/verideploy/internal/release"
 )
 
 // answers are the values verideploy init writes.
@@ -82,11 +82,11 @@ func (a *App) init(ctx context.Context, args []string) int {
 	}
 	switch {
 	case !*template:
-		a.printf("\nWrote %s.\nNext: sudo verideploy fetch, then verideploy plan.\n", abs)
+		a.printf("\nWrote %s.\nNext: verideploy fetch, then verideploy plan.\n", abs)
 	case ans.Release == "":
 		a.printf("Wrote %s. Fill in veriprov and release: the latest release could not be looked up (%v).\n", abs, lookupErr)
 	default:
-		a.printf("Wrote %s with release %s, the latest.\nFill in veriprov, then run sudo verideploy fetch and verideploy plan.\n", abs, ans.Release)
+		a.printf("Wrote %s with release %s, the latest.\nFill in veriprov, then run verideploy fetch and verideploy plan.\n", abs, ans.Release)
 	}
 	return exitOK
 }
@@ -269,7 +269,7 @@ func render(ans answers) []byte {
 	case ans.Release != "":
 		releaseNote = "Release tag of verirelay/release."
 	}
-	return fmt.Appendf(nil, `# Deploy instance config: https://github.com/verirelay/deploy/blob/main/docs/cli.md#config-file
+	return fmt.Appendf(nil, `# VeriDeploy instance config: https://github.com/verirelay/verideploy/blob/main/docs/cli.md#config-file
 version = %q
 
 # Instance name; its unit is verirelay-<instance>.service.

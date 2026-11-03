@@ -8,12 +8,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
-	"github.com/verirelay/deploy/internal/config"
-	"github.com/verirelay/deploy/internal/network"
-	"github.com/verirelay/deploy/internal/plan"
+	"github.com/verirelay/verideploy/internal/config"
+	"github.com/verirelay/verideploy/internal/network"
+	"github.com/verirelay/verideploy/internal/plan"
 )
 
 // fakeRoot builds /dev, /sys and /proc for an SEV-SNP host with 32 GiB.
@@ -46,7 +47,7 @@ func (r *runner) run(_ context.Context, name string, args ...string) ([]byte, er
 	switch {
 	case strings.HasSuffix(name, "qemu-system-x86_64"):
 		return []byte(r.qemuHelp), nil
-	case name == "systemctl" && args[0] == "is-active":
+	case name == "systemctl" && slices.Contains(args, "is-active"):
 		if r.active {
 			return []byte("active\n"), nil
 		}
@@ -70,35 +71,6 @@ func freePort(t *testing.T) string {
 	return addr
 }
 
-// privateDir returns a temporary directory that only its owner can write,
-// whatever the umask.
-func privateDir(t *testing.T) string {
-	dir := t.TempDir()
-	if err := os.Chmod(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	return dir
-}
-
-// instance writes the files of an instance directory that Preflight reads.
-func instance(t *testing.T, memoryMiB int64) config.Config {
-	dir := privateDir(t)
-	c := config.Config{
-		Path: filepath.Join(dir, "deploy.toml"), Dir: dir, Release: "rel-1",
-		Bootstrap: filepath.Join(dir, "bootstrap.json"), QEMU: filepath.Join(dir, "qemu-system-x86_64"), MemoryMiB: memoryMiB,
-	}
-	releaseDir := filepath.Join(dir, "releases", c.Release)
-	if err := os.MkdirAll(releaseDir, 0o750); err != nil {
-		t.Fatal(err)
-	}
-	for _, path := range []string{c.Path, c.Bootstrap, c.QEMU, filepath.Join(releaseDir, "OVMF.fd"), filepath.Join(releaseDir, "vmlinuz"), filepath.Join(releaseDir, "initrd.img")} {
-		if err := os.WriteFile(path, nil, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return c
-}
-
 func TestPreflight(t *testing.T) {
 	veriprov := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/readyz" {
@@ -112,46 +84,34 @@ func TestPreflight(t *testing.T) {
 	defer kds.Close()
 	held := listen(t)
 	defer func() { _ = held.Close() }()
-	writable := func(t *testing.T, c config.Config) {
-		if err := os.Chmod(c.Bootstrap, 0o620); err != nil { //nolint:gosec // G302: the test needs a group-writable file.
-			t.Fatal(err)
-		}
-	}
 	for _, tc := range []struct {
 		name      string
 		snp       string
 		qemuHelp  string
 		active    bool
 		forward   string
-		launched  string
+		launched  plan.Plan
 		memoryMiB int64
 		veriprov  string
-		edit      func(*testing.T, config.Config)
 		failed    string
 	}{
-		{"all pass", "Y", "sev-guest\nsev-snp-guest\n", false, freePort(t), "", 16384, veriprov.URL, nil, ""},
-		{"snp off", "N", "sev-snp-guest", false, freePort(t), "", 16384, veriprov.URL, nil, "SEV-SNP"},
-		{"old qemu", "Y", "sev-guest\n", false, freePort(t), "", 16384, veriprov.URL, nil, "QEMU"},
-		{"writable bootstrap", "Y", "sev-snp-guest", false, freePort(t), "", 16384, veriprov.URL, writable, "Files,QEMU"},
-		{"port taken", "Y", "sev-snp-guest", false, held.Addr().String(), "", 16384, veriprov.URL, nil, "Port"},
-		{"port held by own unit", "Y", "sev-snp-guest", true, held.Addr().String(), held.Addr().String(), 16384, veriprov.URL, nil, ""},
-		{"own unit on another port", "Y", "sev-snp-guest", true, held.Addr().String(), "127.0.0.1:1", 16384, veriprov.URL, nil, "Port"},
-		{"memory", "Y", "sev-snp-guest", false, freePort(t), "", 65536, veriprov.URL, nil, "Memory"},
-		{"veriprov down", "Y", "sev-snp-guest", false, freePort(t), "", 16384, veriprov.URL + "/down", nil, "VeriProv"},
+		{"all pass", "Y", "sev-guest\nsev-snp-guest\n", false, freePort(t), plan.Plan{}, 16384, veriprov.URL, ""},
+		{"snp off", "N", "sev-snp-guest", false, freePort(t), plan.Plan{}, 16384, veriprov.URL, "SEV-SNP"},
+		{"old qemu", "Y", "sev-guest\n", false, freePort(t), plan.Plan{}, 16384, veriprov.URL, "QEMU"},
+		{"port taken", "Y", "sev-snp-guest", false, held.Addr().String(), plan.Plan{}, 16384, veriprov.URL, "Port"},
+		{"port held by own unit", "Y", "sev-snp-guest", true, held.Addr().String(), plan.Plan{Forward: held.Addr().String()}, 16384, veriprov.URL, ""},
+		{"own unit on another port", "Y", "sev-snp-guest", true, held.Addr().String(), plan.Plan{Forward: "127.0.0.1:1"}, 16384, veriprov.URL, "Port"},
+		{"own unit in the other manager", "Y", "sev-snp-guest", true, held.Addr().String(), plan.Plan{Forward: held.Addr().String(), UserUnit: true}, 16384, veriprov.URL, "Port"},
+		{"memory", "Y", "sev-snp-guest", false, freePort(t), plan.Plan{}, 65536, veriprov.URL, "Memory"},
+		{"veriprov down", "Y", "sev-snp-guest", false, freePort(t), plan.Plan{}, 16384, veriprov.URL + "/down", "VeriProv"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := &runner{qemuHelp: tc.qemuHelp, active: tc.active}
-			h := Host{
-				Root: fakeRoot(t, tc.snp), Run: r.run, HTTP: network.Client(false), KDS: kds.URL,
-				TrustedUID: uint32(os.Getuid()), //nolint:gosec // G115: uids fit in uint32.
-			}
-			c := instance(t, tc.memoryMiB)
-			if tc.edit != nil {
-				tc.edit(t, c)
-			}
-			p := plan.Plan{Instance: "relay", Forward: tc.forward, VeriProv: tc.veriprov, ConfigDisk: filepath.Join(c.Dir, "config.img")}
+			h := Host{Root: fakeRoot(t, tc.snp), Run: r.run, HTTP: network.Client(false), KDS: kds.URL}
+			c := config.Config{QEMU: config.DefaultQEMU, MemoryMiB: tc.memoryMiB}
+			p := plan.Plan{Instance: "relay", Forward: tc.forward, VeriProv: tc.veriprov}
 			var failed []string
-			for _, check := range h.Preflight(t.Context(), c, p, plan.Plan{Forward: tc.launched}) {
+			for _, check := range h.Preflight(t.Context(), c, p, tc.launched) {
 				if check.Err != nil {
 					failed = append(failed, check.Name)
 				}
@@ -164,12 +124,9 @@ func TestPreflight(t *testing.T) {
 }
 
 func TestInstallUnit(t *testing.T) {
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, plan.UnitDir), 0o750); err != nil {
-		t.Fatal(err)
-	}
-	h := Host{Root: root}
-	p := plan.Plan{UnitPath: plan.UnitDir + "/verirelay-relay.service", Unit: "[Unit]\n"}
+	// A user's unit directory need not exist yet.
+	h := Host{Root: t.TempDir()}
+	p := plan.Plan{UnitPath: "/home/ops/.config/systemd/user/verirelay-relay.service", Unit: "[Unit]\n"}
 	for i, want := range []bool{true, false} {
 		changed, err := h.InstallUnit(p)
 		if err != nil || changed != want {
@@ -179,5 +136,20 @@ func TestInstallUnit(t *testing.T) {
 	got, err := h.InstalledUnit(p)
 	if err != nil || got != p.Unit {
 		t.Fatalf("installed %q, %v", got, err)
+	}
+}
+
+func TestUserManager(t *testing.T) {
+	r := &runner{active: true}
+	h := Host{Run: r.run}
+	if !h.Active(t.Context(), true, "verirelay-relay.service") {
+		t.Fatal("not active")
+	}
+	if err := h.Systemctl(t.Context(), true, "restart", "verirelay-relay.service"); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"systemctl --user is-active --quiet verirelay-relay.service", "systemctl --user restart verirelay-relay.service"}
+	if strings.Join(r.calls, "|") != strings.Join(want, "|") {
+		t.Fatalf("calls %q", r.calls)
 	}
 }

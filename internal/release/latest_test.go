@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/verirelay/deploy/internal/network"
+	"github.com/verirelay/verideploy/internal/network"
 )
 
 func TestLatest(t *testing.T) {

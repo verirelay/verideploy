@@ -15,7 +15,7 @@ import (
 	"github.com/verirelay/protocol/avr1"
 	"github.com/verirelay/protocol/guest"
 
-	"github.com/verirelay/deploy/internal/network"
+	"github.com/verirelay/verideploy/internal/network"
 )
 
 // Entry is one Bootstrap VeriProv serves at GET /v1/bootstraps.

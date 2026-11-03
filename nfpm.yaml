@@ -8,7 +8,7 @@ priority: optional
 maintainer: VeriRelay <zilingmio@gmail.com>
 description: Launches and upgrades VeriRelay CVMs on an AMD SEV-SNP host from a published release.
 vendor: VeriRelay
-homepage: https://github.com/verirelay/deploy
+homepage: https://github.com/verirelay/verideploy
 license: Apache-2.0
 contents:
   - src: dist/release/verideploy-linux-amd64

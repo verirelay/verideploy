@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/verirelay/deploy/internal/fake"
-	"github.com/verirelay/deploy/internal/network"
+	"github.com/verirelay/verideploy/internal/fake"
+	"github.com/verirelay/verideploy/internal/network"
 )
 
 func sign(t *testing.T, key ed25519.PrivateKey, statement any) proof {

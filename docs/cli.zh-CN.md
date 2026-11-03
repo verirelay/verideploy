@@ -16,14 +16,14 @@ verideploy version
 
 `-c` 指定实例的配置文件，默认是 `deploy.toml`。配置文件所在目录就是实例目录。
 
-| 命令 | 需要 root | 作用 |
-| --- | --- | --- |
-| `init` | 是 | 逐项询问后写出新的配置文件。不会覆盖已有文件。 |
-| `fetch` | 是 | 把 release 下载到 `releases/<tag>/` 并校验。已存在且通过校验的 release 保持原样；否则新下载的内容通过校验后才会替换它。之后从 VeriProv 获取引导文件，存为 `bootstrap.json`。 |
-| `plan` | 否 | 校验 release 和宿主机，打印 `up` 将要启动的内容：尚未安装 unit 时显示完整的 unit，否则显示与已安装 unit 的差异。不做任何改动。 |
-| `up` | 是 | 先做 `plan` 的全部检查，再写入 `config.img` 和 systemd unit。CVM 运行的不是当前 plan 时重启它，然后等待 `/readyz`。任何检查未通过时不做改动。 |
-| `down` | 是 | 停止并禁用 CVM。文件都会保留。 |
-| `status` | 否 | 检查 unit 和 `/readyz`，请求一份新的证明，并与 `up` 启动的内容比对。 |
+| 命令 | 作用 |
+| --- | --- |
+| `init` | 逐项询问后写出新的配置文件。不会覆盖已有文件。 |
+| `fetch` | 把 release 下载到 `releases/<tag>/` 并校验。已存在且通过校验的 release 保持原样；否则新下载的内容通过校验后才会替换它。之后从 VeriProv 获取引导文件，存为 `bootstrap.json`。 |
+| `plan` | 校验 release 和宿主机，打印 `up` 将要启动的内容：尚未安装 unit 时显示完整的 unit，否则显示与已安装 unit 的差异。不做任何改动。 |
+| `up` | 先做 `plan` 的全部检查，再写入 `config.img` 和 systemd unit。CVM 运行的不是当前 plan 时重启它，然后等待 `/readyz`。任何检查未通过时不做改动。 |
+| `down` | 停止并禁用 CVM。文件都会保留。 |
+| `status` | 检查 unit 和 `/readyz`，请求一份新的证明，并与 `up` 启动的内容比对。 |
 
 `init` 在方括号中显示每一项的默认值，直接回车即采用。加上 `--template` 时不询问，直接写入默认值，之后由你自己修改：
 
@@ -80,7 +80,7 @@ forward = "127.0.0.1:18081"
 
 未知的键会报错。凡是进入启动度量或 SNP guest policy 的参数都不能配置，它们只来自 release。
 
-实例目录的路径只能包含 `A-Z a-z 0-9 . _ / + -`，并且只能由 root 改动（见[宿主机检查](#宿主机检查)）。
+实例目录的路径只能包含 `A-Z a-z 0-9 . _ / + -`，因为它会出现在 QEMU 参数和 unit 中。
 
 ## 实例目录
 
@@ -92,11 +92,22 @@ forward = "127.0.0.1:18081"
 | `config.img` | `up` | 配置盘：引导文件后补零到 64 KiB。 |
 | `plan.json` | `up` | `up` 上一次启动的内容。plan 与它不同时 `up` 会重启 CVM，`status` 也以它为准比对。 |
 
-unit `/etc/systemd/system/verirelay-<instance>.service` 写有完整的 QEMU 命令行，`systemctl cat` 看到的就是实际运行的命令。它开机自启，不依赖 Deploy。需要修改时，改 `deploy.toml` 后运行 `up`，不要直接改 unit。
+unit `verirelay-<instance>.service` 写有完整的 QEMU 命令行，`systemctl cat` 看到的就是实际运行的命令。它开机自启，不依赖 VeriDeploy。需要修改时，改 `deploy.toml` 后运行 `up`，不要直接改 unit。
 
 一台宿主机上可以运行多个实例：每个实例用自己的目录、`instance` 和 `network.forward`。共用同一个引导文件的实例，会从 VeriProv 拿到同一份运行配置。`plan` 和 `up` 不会替换由其他配置文件生成的 unit，所以同名的两个实例不会互相覆盖。
 
-日志：`journalctl -u verirelay-<instance>`。
+## systemd manager
+
+unit 装在哪里，取决于由谁运行 `plan` 和 `up`：
+
+| 运行身份 | unit | QEMU 的运行身份 | 日志 |
+| --- | --- | --- | --- |
+| root | `/etc/systemd/system/verirelay-<instance>.service` | root | `journalctl -u verirelay-<instance>` |
+| 其他用户 | `~/.config/systemd/user/verirelay-<instance>.service`（设置了 `$XDG_CONFIG_HOME` 时以它为准），由 `systemctl --user` 管理 | 该用户 | `journalctl --user -u verirelay-<instance>` |
+
+以普通用户运行时，QEMU 需要能访问 `/dev/kvm` 和 `/dev/sev`。用户级 unit 只有在开启 lingering（`loginctl enable-linger`）后才会开机自启。
+
+`up` 会把所用的 manager 记进 `plan.json`；之后无论谁运行 `status` 和 `down`，都按记录的那个来操作。
 
 ## release 校验
 
@@ -127,10 +138,9 @@ unit `/etc/systemd/system/verirelay-<instance>.service` 写有完整的 QEMU 命
 
 | 检查 | 通过条件 |
 | --- | --- |
-| Files | 配置文件、引导文件、QEMU、启动产物和 `config.img`，以及它们上面的每一级目录，都只有 root 能改动。QEMU 以 root 身份运行，能改动这些文件的用户就能以 root 身份运行自己的 guest。这项检查通过前不会执行 QEMU。 |
 | SEV-SNP | `/dev/kvm` 和 `/dev/sev` 存在，且 `kvm_amd` 开启了 SEV-SNP。 |
 | QEMU | `qemu -object help` 列出 `sev-snp-guest`。 |
-| Port | `network.forward` 空闲，或者被本实例自己的 unit 占用，且 `up` 启动它时用的是同一个地址。 |
+| Port | `network.forward` 空闲，或者被本实例自己的 unit 占用，且 `up` 启动它时用的是同一个地址和同一个 manager。 |
 | Memory | `machine.memory` 不超过宿主机内存。 |
 | VeriProv | 引导文件中的 VeriProv 用本机 CA 根证书通过 TLS 访问时，`/readyz` 返回成功。CVM 用自己的 CA bundle 校验证书。 |
 | AMD KDS | 能访问 `https://kdsintf.amd.com`。CVM 从这里获取 VCEK。 |
@@ -149,7 +159,7 @@ unit `/etc/systemd/system/verirelay-<instance>.service` 写有完整的 QEMU 命
 | `provisioning unavailable` 且含 `x509:` | CVM 不信任 VeriProv 的 TLS 证书。 |
 | `provisioning unavailable` | CVM 连不上 VeriProv。 |
 | `fetch AMD KDS resource` | CVM 无法从 AMD KDS 获取 VCEK。 |
-| `qemu-system-x86_64:` | QEMU 未能启动 CVM。 |
+| `qemu-system-x86_64:` | QEMU 未能启动 CVM，例如没有 `/dev/kvm` 或 `/dev/sev` 的访问权限。 |
 
 ## 状态检查
 
@@ -157,7 +167,7 @@ unit `/etc/systemd/system/verirelay-<instance>.service` 写有完整的 QEMU 命
 
 - unit 处于 active，且与 `up` 安装的一致；
 - `/readyz` 返回 200；
-- 新取得的证明绑定了 Deploy 发送的 nonce；
+- 新取得的证明绑定了 VeriDeploy 发送的 nonce；
 - 证明中的启动度量和 `HOST_DATA` 与 `up` 启动的一致；
 - 证明中披露的引导文件的哈希等于该 `HOST_DATA`。
 
@@ -169,4 +179,4 @@ unit `/etc/systemd/system/verirelay-<instance>.service` 写有完整的 QEMU 命
 | --- | --- |
 | 0 | 成功。 |
 | 1 | 有检查未通过。 |
-| 2 | 用法错误、配置文件无效，或者没有 root 权限就运行 `up` 或 `down`。 |
+| 2 | 用法错误或配置文件无效。 |

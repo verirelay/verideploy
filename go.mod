@@ -1,4 +1,4 @@
-module github.com/verirelay/deploy
+module github.com/verirelay/verideploy
 
 go 1.26.10
 

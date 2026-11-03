@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/verirelay/deploy/internal/fake"
+	"github.com/verirelay/verideploy/internal/fake"
 )
 
 func TestFetch(t *testing.T) {

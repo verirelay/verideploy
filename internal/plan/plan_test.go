@@ -12,9 +12,9 @@ import (
 
 	"github.com/verirelay/protocol/guest"
 
-	"github.com/verirelay/deploy/internal/config"
-	"github.com/verirelay/deploy/internal/fake"
-	"github.com/verirelay/deploy/internal/release"
+	"github.com/verirelay/verideploy/internal/config"
+	"github.com/verirelay/verideploy/internal/fake"
+	"github.com/verirelay/verideploy/internal/release"
 )
 
 var update = flag.Bool("update", false, "rewrite testdata/verirelay-relay.service")
@@ -23,6 +23,8 @@ const (
 	dir = "/home/ubuntu/docker/verirelay/relay"
 	tag = "rel-2026.10.30-1"
 )
+
+var system = Scope{Dir: SystemUnitDir}
 
 func production() (config.Config, release.Release) {
 	c := config.Config{
@@ -77,7 +79,7 @@ func execStart(t *testing.T, unit string) []string {
 }
 
 // TestProductionArgv reproduces the od3 production unit of 2026-10-30, apart
-// from Deploy's absolute paths.
+// from VeriDeploy's absolute paths.
 func TestProductionArgv(t *testing.T) {
 	od3, err := os.ReadFile("testdata/od3-verirelay.service")
 	if err != nil {
@@ -94,7 +96,7 @@ func TestProductionArgv(t *testing.T) {
 		}
 	}
 	c, r := production()
-	p, err := Resolve(c, r, []byte(fake.Bootstrap))
+	p, err := Resolve(c, r, []byte(fake.Bootstrap), system)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,22 +128,42 @@ func TestProductionArgv(t *testing.T) {
 	}
 }
 
+// TestUserUnit: as a non-root user, the unit goes to the user's manager,
+// which has no network-online.target or multi-user.target.
+func TestUserUnit(t *testing.T) {
+	c, r := production()
+	p, err := Resolve(c, r, []byte(fake.Bootstrap), Scope{User: true, Dir: "/home/ops/.config/systemd/user"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !p.UserUnit || p.UnitPath != "/home/ops/.config/systemd/user/verirelay-relay.service" {
+		t.Fatalf("%v %s", p.UserUnit, p.UnitPath)
+	}
+	if !strings.Contains(p.Unit, "WantedBy=default.target") || strings.Contains(p.Unit, "network-online") {
+		t.Fatal(p.Unit)
+	}
+	sys, err := Resolve(c, r, []byte(fake.Bootstrap), system)
+	if err != nil || !slices.Equal(execStart(t, p.Unit), execStart(t, sys.Unit)) {
+		t.Fatalf("user and system units launch differently: %v", err)
+	}
+}
+
 func TestResolveRejects(t *testing.T) {
 	c, r := production()
-	if _, err := Resolve(c, r, []byte(`{"version":"veriprov-bootstrap/1"}`)); err == nil {
+	if _, err := Resolve(c, r, []byte(`{"version":"veriprov-bootstrap/1"}`), system); err == nil {
 		t.Fatal("accepted an invalid Bootstrap")
 	}
-	if _, err := Resolve(c, r, []byte("not json")); err == nil {
+	if _, err := Resolve(c, r, []byte("not json"), system); err == nil {
 		t.Fatal("accepted a non-JSON Bootstrap")
 	}
 	other := r
 	other.VCPUs = 4
-	if _, err := Resolve(c, other, []byte(fake.Bootstrap)); err == nil {
+	if _, err := Resolve(c, other, []byte(fake.Bootstrap), system); err == nil {
 		t.Fatal("accepted a release entry for another vCPU count")
 	}
 	moved := c
 	moved.VeriProv = "https://veriprov.example.com"
-	if _, err := Resolve(moved, r, []byte(fake.Bootstrap)); err == nil || !strings.Contains(err.Error(), "run verideploy fetch") {
+	if _, err := Resolve(moved, r, []byte(fake.Bootstrap), system); err == nil || !strings.Contains(err.Error(), "run verideploy fetch") {
 		t.Fatalf("accepted the Bootstrap of another VeriProv: %v", err)
 	}
 }
@@ -150,7 +172,7 @@ func TestResolveRejects(t *testing.T) {
 // trailing newline is accepted and changes HOST_DATA.
 func TestBootstrapBytes(t *testing.T) {
 	c, r := production()
-	p, err := Resolve(c, r, []byte(fake.Bootstrap+"\n"))
+	p, err := Resolve(c, r, []byte(fake.Bootstrap+"\n"), system)
 	if err != nil {
 		t.Fatal(err)
 	}

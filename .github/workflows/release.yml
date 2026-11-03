@@ -55,7 +55,7 @@ jobs:
           set -euo pipefail
           # The quoted heredoc keeps Markdown backticks literal; @REPO@ and @TAG@ are filled in below.
           notes="$(cat <<'EOF'
-          Deploy launches and upgrades VeriRelay CVMs on your AMD SEV-SNP host from a published release, and checks that the running CVM attests what it launched.
+          VeriDeploy launches and upgrades VeriRelay CVMs on your AMD SEV-SNP host from a published release, and checks that the running CVM attests what it launched.
 
           Install `verideploy_amd64.deb` (Debian, Ubuntu) or `verideploy_x86_64.rpm` (RHEL, Fedora, SUSE), or copy `verideploy-linux-amd64` to `/usr/local/bin/verideploy`. See the [README](https://github.com/@REPO@/blob/@TAG@/README.md) for the quick start and the [CLI reference](https://github.com/@REPO@/blob/@TAG@/docs/cli.md) for every command.
 

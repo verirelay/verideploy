@@ -16,7 +16,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/verirelay/protocol/avr1"
 
-	"github.com/verirelay/deploy/internal/network"
+	"github.com/verirelay/verideploy/internal/network"
 )
 
 const (

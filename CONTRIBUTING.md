@@ -14,4 +14,4 @@ The cross-repo contracts are:
 
 Coordinate contract changes with the affected repositories.
 
-Deploy manages the CVM's lifecycle only: never add management of VeriProv, its policy, Runtime Config or Receipt stores.
+VeriDeploy manages the CVM's lifecycle only: never add management of VeriProv, its policy, Runtime Config or Receipt stores.

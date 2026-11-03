@@ -7,9 +7,9 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/verirelay/deploy/internal/cli"
-	"github.com/verirelay/deploy/internal/host"
-	"github.com/verirelay/deploy/internal/network"
+	"github.com/verirelay/verideploy/internal/cli"
+	"github.com/verirelay/verideploy/internal/host"
+	"github.com/verirelay/verideploy/internal/network"
 )
 
 var version = "dev"
@@ -23,21 +23,22 @@ func run(args []string) int {
 			fmt.Print(cli.Help)
 			return 0
 		case "version":
-			fmt.Println("Deploy " + version)
+			fmt.Println("VeriDeploy " + version)
 			return 0
 		}
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	app := &cli.App{
-		In:           os.Stdin,
-		Out:          os.Stdout,
-		Err:          os.Stderr,
-		Host:         host.New(),
-		Download:     network.Client(true),
-		HTTP:         network.Client(false),
-		Euid:         os.Geteuid,
-		PollInterval: 2 * time.Second,
+		In:            os.Stdin,
+		Out:           os.Stdout,
+		Err:           os.Stderr,
+		Host:          host.New(),
+		Download:      network.Client(true),
+		HTTP:          network.Client(false),
+		Euid:          os.Geteuid,
+		UserConfigDir: os.UserConfigDir,
+		PollInterval:  2 * time.Second,
 	}
 	return app.Run(ctx, args)
 }

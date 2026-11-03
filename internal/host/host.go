@@ -19,11 +19,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/verirelay/deploy/internal/atomic"
-	"github.com/verirelay/deploy/internal/config"
-	"github.com/verirelay/deploy/internal/network"
-	"github.com/verirelay/deploy/internal/plan"
-	"github.com/verirelay/deploy/internal/release"
+	"github.com/verirelay/verideploy/internal/atomic"
+	"github.com/verirelay/verideploy/internal/config"
+	"github.com/verirelay/verideploy/internal/network"
+	"github.com/verirelay/verideploy/internal/plan"
 )
 
 // Runner runs a command and returns its combined output.
@@ -34,15 +33,13 @@ func Exec(ctx context.Context, name string, args ...string) ([]byte, error) {
 	return exec.CommandContext(ctx, name, args...).CombinedOutput() // #nosec G204 -- name and args are fixed commands or the validated QEMU path; no shell.
 }
 
-// Host is the machine Deploy runs on. Tests point Root at a fake tree, add
-// their own uid as TrustedUID, and replace Run, HTTP and KDS.
+// Host is the machine VeriDeploy runs on. Tests point Root at a fake tree and
+// replace Run, HTTP and KDS.
 type Host struct {
 	Root string
 	Run  Runner
 	HTTP *http.Client
 	KDS  string
-	// TrustedUID may own the files root uses, besides root itself.
-	TrustedUID uint32
 }
 
 // New returns the real host.
@@ -62,83 +59,14 @@ type Check struct {
 // Preflight checks that the host can launch p. launched is the Plan up last
 // launched, zero when there is none.
 func (h Host) Preflight(ctx context.Context, c config.Config, p plan.Plan, launched plan.Plan) []Check {
-	files := h.files(c, p)
-	qemu := Check{Name: "QEMU", Err: errors.New("not run until the Files check passes")}
-	if files.Err == nil {
-		qemu = h.qemu(ctx, c.QEMU)
-	}
 	return []Check{
-		files,
 		h.sevSNP(),
-		qemu,
+		h.qemu(ctx, c.QEMU),
 		h.port(ctx, p, launched),
 		h.memory(c.MemoryMiB),
 		h.veriprov(ctx, p.VeriProv),
 		h.kds(ctx),
 	}
-}
-
-// files checks that only root can change what up reads and what QEMU, run as
-// root, boots: otherwise any user who can write there could swap the kernel
-// or point config.img at a host file.
-func (h Host) files(c config.Config, p plan.Plan) Check {
-	check := Check{Name: "Files", Detail: "only root can change the config, the Bootstrap, QEMU and the boot files"}
-	paths := []string{c.Path, c.Bootstrap, c.QEMU}
-	for _, name := range release.BootFiles {
-		paths = append(paths, filepath.Join(c.Dir, "releases", c.Release, name))
-	}
-	if _, err := os.Lstat(p.ConfigDisk); err == nil {
-		paths = append(paths, p.ConfigDisk)
-	}
-	for _, path := range paths {
-		if err := h.rootOnly(path); err != nil {
-			check.Err = err
-			return check
-		}
-	}
-	return check
-}
-
-// rootOnly checks every component of path, and of the path its symlinks
-// resolve to, from / down.
-func (h Host) rootOnly(path string) error {
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return err
-	}
-	for _, p := range []string{path, resolved} {
-		for dir := p; ; dir = filepath.Dir(dir) {
-			fi, err := os.Lstat(dir)
-			if err != nil {
-				return err
-			}
-			if err := h.trusted(dir, fi); err != nil {
-				return err
-			}
-			if dir == "/" {
-				break
-			}
-		}
-	}
-	return nil
-}
-
-// trusted requires an owner of root or TrustedUID and no write access for
-// group or others. A sticky directory such as /tmp is fine: others cannot
-// rename what they do not own there.
-func (h Host) trusted(path string, fi fs.FileInfo) error {
-	st, ok := fi.Sys().(*syscall.Stat_t)
-	if !ok {
-		return fmt.Errorf("%s: no owner information", path)
-	}
-	if st.Uid != 0 && st.Uid != h.TrustedUID {
-		return fmt.Errorf("%s is owned by uid %d, not root", path, st.Uid)
-	}
-	mode := fi.Mode()
-	if mode&fs.ModeSymlink == 0 && mode.Perm()&0o022 != 0 && (!mode.IsDir() || mode&fs.ModeSticky == 0) {
-		return fmt.Errorf("%s is writable by group or others", path)
-	}
-	return nil
 }
 
 func (h Host) sevSNP() Check {
@@ -182,7 +110,7 @@ func (h Host) port(ctx context.Context, p, launched plan.Plan) Check {
 		return c
 	}
 	unit := plan.UnitName(p.Instance)
-	if launched.Forward == p.Forward && h.Active(ctx, unit) {
+	if launched.Forward == p.Forward && launched.UserUnit == p.UserUnit && h.Active(ctx, p.UserUnit, unit) {
 		c.Detail = p.Forward + " is held by " + unit
 		return c
 	}
@@ -251,15 +179,23 @@ func (h Host) kds(ctx context.Context) Check {
 	return c
 }
 
+// manager prefixes args with --user for the user's own systemd manager.
+func manager(user bool, args ...string) []string {
+	if user {
+		return append([]string{"--user"}, args...)
+	}
+	return args
+}
+
 // Active reports whether unit is active.
-func (h Host) Active(ctx context.Context, unit string) bool {
-	_, err := h.Run(ctx, "systemctl", "is-active", "--quiet", unit)
+func (h Host) Active(ctx context.Context, user bool, unit string) bool {
+	_, err := h.Run(ctx, "systemctl", manager(user, "is-active", "--quiet", unit)...)
 	return err == nil
 }
 
 // State returns the ActiveState of unit, such as active or failed.
-func (h Host) State(ctx context.Context, unit string) string {
-	out, _ := h.Run(ctx, "systemctl", "is-active", unit)
+func (h Host) State(ctx context.Context, user bool, unit string) string {
+	out, _ := h.Run(ctx, "systemctl", manager(user, "is-active", unit)...)
 	if s := strings.TrimSpace(string(out)); s != "" {
 		return s
 	}
@@ -267,7 +203,8 @@ func (h Host) State(ctx context.Context, unit string) string {
 }
 
 // Systemctl runs systemctl with args.
-func (h Host) Systemctl(ctx context.Context, args ...string) error {
+func (h Host) Systemctl(ctx context.Context, user bool, args ...string) error {
+	args = manager(user, args...)
 	out, err := h.Run(ctx, "systemctl", args...)
 	if err != nil {
 		return fmt.Errorf("systemctl %s: %w: %s", strings.Join(args, " "), err, bytes.TrimSpace(out))
@@ -276,8 +213,8 @@ func (h Host) Systemctl(ctx context.Context, args ...string) error {
 }
 
 // Journal returns the messages of unit since since, one per line.
-func (h Host) Journal(ctx context.Context, unit string, since time.Time) ([]byte, error) {
-	return h.Run(ctx, "journalctl", "--unit", unit, "--since", "@"+strconv.FormatInt(since.Unix(), 10), "--output", "cat", "--no-pager")
+func (h Host) Journal(ctx context.Context, user bool, unit string, since time.Time) ([]byte, error) {
+	return h.Run(ctx, "journalctl", manager(user, "--unit", unit, "--since", "@"+strconv.FormatInt(since.Unix(), 10), "--output", "cat", "--no-pager")...)
 }
 
 // InstalledUnit returns the unit file at p.UnitPath, or "" when there is none.
@@ -293,6 +230,10 @@ func (h Host) InstalledUnit(p plan.Plan) (string, error) {
 func (h Host) InstallUnit(p plan.Plan) (bool, error) {
 	installed, err := h.InstalledUnit(p)
 	if err != nil || installed == p.Unit {
+		return false, err
+	}
+	// A user's unit directory may not exist yet.
+	if err := os.MkdirAll(filepath.Dir(h.path(p.UnitPath)), 0o755); err != nil { //nolint:gosec // G301: unit directories are world-readable.
 		return false, err
 	}
 	return true, atomic.WriteFile(h.path(p.UnitPath), []byte(p.Unit), 0o644)

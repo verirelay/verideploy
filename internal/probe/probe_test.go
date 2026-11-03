@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/verirelay/deploy/internal/fake"
-	"github.com/verirelay/deploy/internal/network"
-	"github.com/verirelay/deploy/internal/plan"
+	"github.com/verirelay/verideploy/internal/fake"
+	"github.com/verirelay/verideploy/internal/network"
+	"github.com/verirelay/verideploy/internal/plan"
 )
 
 func TestAttest(t *testing.T) {

@@ -18,8 +18,8 @@ import (
 
 	"github.com/verirelay/protocol/avr1"
 
-	"github.com/verirelay/deploy/internal/network"
-	"github.com/verirelay/deploy/internal/plan"
+	"github.com/verirelay/verideploy/internal/network"
+	"github.com/verirelay/verideploy/internal/plan"
 )
 
 // Field offsets in the AMD SEV-SNP ATTESTATION_REPORT.

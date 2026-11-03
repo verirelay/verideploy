@@ -18,16 +18,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/verirelay/deploy/internal/atomic"
-	"github.com/verirelay/deploy/internal/bootstrap"
-	"github.com/verirelay/deploy/internal/config"
-	"github.com/verirelay/deploy/internal/host"
-	"github.com/verirelay/deploy/internal/plan"
-	"github.com/verirelay/deploy/internal/probe"
-	"github.com/verirelay/deploy/internal/release"
+	"github.com/verirelay/verideploy/internal/atomic"
+	"github.com/verirelay/verideploy/internal/bootstrap"
+	"github.com/verirelay/verideploy/internal/config"
+	"github.com/verirelay/verideploy/internal/host"
+	"github.com/verirelay/verideploy/internal/plan"
+	"github.com/verirelay/verideploy/internal/probe"
+	"github.com/verirelay/verideploy/internal/release"
 )
 
-const Help = `Deploy launches and upgrades VeriRelay CVMs on an AMD SEV-SNP host.
+const Help = `VeriDeploy launches and upgrades VeriRelay CVMs on an AMD SEV-SNP host.
 
 Usage:
   verideploy init   [-c FILE] [options]   Write a new config, asking for each value
@@ -64,7 +64,10 @@ type App struct {
 	Download *http.Client
 	// HTTP follows no redirects.
 	HTTP *http.Client
-	Euid func() int
+	// Euid and UserConfigDir choose the systemd manager: root uses the
+	// system's, anyone else their own under UserConfigDir()/systemd/user.
+	Euid          func() int
+	UserConfigDir func() (string, error)
 	// PollInterval is how often up polls /readyz.
 	PollInterval time.Duration
 	// Releases is where init looks up the latest release; empty means
@@ -214,7 +217,12 @@ func (a *App) resolve(ctx context.Context, c config.Config) (resolved, bool) {
 		_, _ = fmt.Fprintf(a.Err, "%v\nRun verideploy fetch first: it downloads the Bootstrap from %s.\n", err, c.VeriProv)
 		return out, false
 	}
-	p, err := plan.Resolve(c, r, out.bootstrap)
+	s, err := a.scope()
+	if err != nil {
+		_, _ = fmt.Fprintln(a.Err, err)
+		return out, false
+	}
+	p, err := plan.Resolve(c, r, out.bootstrap, s)
 	if err != nil {
 		_, _ = fmt.Fprintln(a.Err, err)
 		return out, false
@@ -253,7 +261,7 @@ func (a *App) resolve(ctx context.Context, c config.Config) (resolved, bool) {
 		}
 	case !p.Owns(installed):
 		ok = false
-		a.printf("\nUnit %s belongs to another config file, or was not written by Deploy:\n  %s\nRename this instance, or remove that unit first.\n", p.UnitPath, firstLine(installed))
+		a.printf("\nUnit %s belongs to another config file, or was not written by VeriDeploy:\n  %s\nRename this instance, or remove that unit first.\n", p.UnitPath, firstLine(installed))
 	case installed == p.Unit:
 		a.printf("\nUnit %s: unchanged\n", p.UnitPath)
 	default:
@@ -294,18 +302,20 @@ func (a *App) plan(ctx context.Context, c config.Config, _ options) int {
 	return exitOK
 }
 
-func (a *App) needRoot(command string) bool {
+// scope picks the systemd manager for plan and up: the system manager for
+// root, the user's own otherwise, so QEMU runs as whoever runs up.
+func (a *App) scope() (plan.Scope, error) {
 	if a.Euid() == 0 {
-		return true
+		return plan.Scope{Dir: plan.SystemUnitDir}, nil
 	}
-	_, _ = fmt.Fprintf(a.Err, "verideploy %s changes systemd units and needs root.\n", command)
-	return false
+	dir, err := a.UserConfigDir()
+	if err != nil {
+		return plan.Scope{}, err
+	}
+	return plan.Scope{User: true, Dir: filepath.Join(dir, "systemd", "user")}, nil
 }
 
 func (a *App) up(ctx context.Context, c config.Config, o options) int {
-	if !a.needRoot("up") {
-		return exitUsage
-	}
 	r, ok := a.resolve(ctx, c)
 	if !ok {
 		_, _ = fmt.Fprintln(a.Err, "\nNothing changed. Fix the failures above first.")
@@ -323,16 +333,16 @@ func (a *App) up(ctx context.Context, c config.Config, o options) int {
 	}
 	unit := plan.UnitName(p.Instance)
 	for _, step := range [][]string{{"daemon-reload"}, {"enable", unit}} {
-		if err := a.Host.Systemctl(ctx, step...); err != nil {
+		if err := a.Host.Systemctl(ctx, p.UserUnit, step...); err != nil {
 			return a.fail(err)
 		}
 	}
 	// Decide from what was last launched, not from the unit file: an earlier
 	// up may have written the unit and failed before restarting.
-	restart := o.restart || r.launched.Unit != p.Unit || !a.Host.Active(ctx, unit)
+	restart := o.restart || r.launched.Unit != p.Unit || !a.Host.Active(ctx, p.UserUnit, unit)
 	since := time.Now().Add(-time.Second)
 	if restart {
-		if err := a.Host.Systemctl(ctx, "restart", unit); err != nil {
+		if err := a.Host.Systemctl(ctx, p.UserUnit, "restart", unit); err != nil {
 			return a.fail(err)
 		}
 		record, err := json.MarshalIndent(p, "", "  ")
@@ -354,20 +364,30 @@ func (a *App) up(ctx context.Context, c config.Config, o options) int {
 		return exitOK
 	}
 	_, _ = fmt.Fprintf(a.Err, "Not ready: %v\n", err)
-	journal, jerr := a.Host.Journal(ctx, unit, since)
+	journal, jerr := a.Host.Journal(ctx, p.UserUnit, unit, since)
 	if cause := probe.Diagnose(journal, p); jerr == nil && cause != "" {
 		_, _ = fmt.Fprintf(a.Err, "Likely cause: %s\n", cause)
 	}
-	_, _ = fmt.Fprintf(a.Err, "Full log: journalctl -u %s\n", unit)
+	logs := "journalctl -u " + unit
+	if p.UserUnit {
+		logs = "journalctl --user -u " + unit
+	}
+	_, _ = fmt.Fprintf(a.Err, "Full log: %s\n", logs)
 	return exitFailed
 }
 
+// down stops the unit in the manager up used, as plan.json records it.
 func (a *App) down(ctx context.Context, c config.Config, _ options) int {
-	if !a.needRoot("down") {
-		return exitUsage
+	launched, err := readPlan(c.Dir)
+	if err != nil {
+		return a.fail(err)
+	}
+	user := launched.UserUnit
+	if launched.Version == "" {
+		user = a.Euid() != 0
 	}
 	unit := plan.UnitName(c.Instance)
-	if err := a.Host.Systemctl(ctx, "disable", "--now", unit); err != nil {
+	if err := a.Host.Systemctl(ctx, user, "disable", "--now", unit); err != nil {
 		return a.fail(err)
 	}
 	a.printf("Stopped and disabled %s. Its files are kept.\n", unit)
@@ -392,7 +412,7 @@ func (a *App) status(ctx context.Context, c config.Config, _ options) int {
 		a.printf("  %s  "+format+"\n", append([]any{mark}, args...)...)
 	}
 	a.printf("%s: %s, %d vCPU\n", unit, p.Release, p.VCPUs)
-	state := a.Host.State(ctx, unit)
+	state := a.Host.State(ctx, p.UserUnit, unit)
 	report(state == "active", "unit %s", state)
 	installed, err := a.Host.InstalledUnit(p)
 	report(err == nil && installed == p.Unit, "installed unit matches plan.json")

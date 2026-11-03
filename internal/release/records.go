@@ -14,7 +14,7 @@ import (
 
 	"github.com/verirelay/protocol/avr1"
 
-	"github.com/verirelay/deploy/internal/network"
+	"github.com/verirelay/verideploy/internal/network"
 )
 
 const (
@@ -108,7 +108,7 @@ type revocationStatement struct {
 }
 
 // CheckRegistry asks Registry at base about measurement and judges the answer
-// as the Verifier's code verdict does, so Deploy never launches a measurement
+// as the Verifier's code verdict does, so VeriDeploy never launches a measurement
 // whose Receipts that verdict fails. failure describes a Build Record under
 // one of keys that is revoked or carries an invalid signature. err reports an
 // answer that leaves the verdict undecided, such as an unreachable Registry;

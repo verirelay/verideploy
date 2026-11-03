@@ -35,7 +35,7 @@ CI 使用 golangci-lint v2.15.0 和 actionlint v1.7.12。`make release` 调用 n
 | --- | --- |
 | `internal/release/testdata/rel-2026.10.30-1/` | 一个已发布 release 的 `chain.json`、`build-records.json` 和 `SHA256SUMS`。其中的构建记录必须能用官方 Release Key 验证通过。 |
 | `internal/plan/testdata/od3-verirelay.service` | 一个手工部署的生产 unit。推导出的 QEMU 命令行除文件路径外必须与它一致。 |
-| `internal/plan/testdata/verirelay-relay.service` | Deploy 为同一实例生成的 unit。 |
+| `internal/plan/testdata/verirelay-relay.service` | VeriDeploy 为同一实例生成的 unit。 |
 
 审阅后更新生成的 unit：
 

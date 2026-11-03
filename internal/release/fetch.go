@@ -14,8 +14,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/verirelay/deploy/internal/atomic"
-	"github.com/verirelay/deploy/internal/network"
+	"github.com/verirelay/verideploy/internal/atomic"
+	"github.com/verirelay/verideploy/internal/network"
 )
 
 const maxBootFileSize = 512 << 20

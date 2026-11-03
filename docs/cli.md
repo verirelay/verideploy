@@ -16,14 +16,14 @@ verideploy version
 
 `-c` names the instance's config file, `deploy.toml` by default. Its directory is the instance directory.
 
-| Command | Needs root | What it does |
-| --- | --- | --- |
-| `init` | yes | Writes a new config file, asking for each value. Never overwrites a file. |
-| `fetch` | yes | Downloads the release into `releases/<tag>/` and checks it. A release already there that passes the checks is kept as it is. Otherwise the download replaces it only once it passes. Then fetches the Bootstrap from VeriProv into `bootstrap.json`. |
-| `plan` | no | Checks the release and the host, then prints what `up` would launch: the whole unit when none is installed, otherwise its difference from the installed one. Changes nothing. |
-| `up` | yes | Runs the `plan` checks, writes `config.img` and the systemd unit, restarts the CVM when it does not run the current plan, and waits for `/readyz`. Changes nothing when a check fails. |
-| `down` | yes | Stops and disables the CVM. Files are kept. |
-| `status` | no | Checks the unit and `/readyz`, requests a fresh attestation, and compares it with what `up` launched. |
+| Command | What it does |
+| --- | --- |
+| `init` | Writes a new config file, asking for each value. Never overwrites a file. |
+| `fetch` | Downloads the release into `releases/<tag>/` and checks it. A release already there that passes the checks is kept as it is. Otherwise the download replaces it only once it passes. Then fetches the Bootstrap from VeriProv into `bootstrap.json`. |
+| `plan` | Checks the release and the host, then prints what `up` would launch: the whole unit when none is installed, otherwise its difference from the installed one. Changes nothing. |
+| `up` | Runs the `plan` checks, writes `config.img` and the systemd unit, restarts the CVM when it does not run the current plan, and waits for `/readyz`. Changes nothing when a check fails. |
+| `down` | Stops and disables the CVM. Files are kept. |
+| `status` | Checks the unit and `/readyz`, requests a fresh attestation, and compares it with what `up` launched. |
 
 `init` shows each default in brackets; Enter keeps it. With `--template`, it writes the defaults without asking, for you to edit:
 
@@ -80,7 +80,7 @@ Optional keys, placed before `[machine]`:
 
 Unknown keys are errors. Nothing that enters the Launch Measurement or the SNP guest policy can be configured: those come from the release.
 
-The instance directory's path may contain only `A-Z a-z 0-9 . _ / + -`, and only root may be able to change it (see [Host checks](#host-checks)).
+The instance directory's path may contain only `A-Z a-z 0-9 . _ / + -`, because it appears in QEMU options and in the unit.
 
 ## Instance directory
 
@@ -92,11 +92,22 @@ The instance directory's path may contain only `A-Z a-z 0-9 . _ / + -`, and only
 | `config.img` | `up` | The Config Disk: the Bootstrap followed by zero padding to 64 KiB. |
 | `plan.json` | `up` | What `up` last launched. `up` restarts the CVM when the plan differs from it, and `status` compares against it. |
 
-The unit `/etc/systemd/system/verirelay-<instance>.service` holds the full QEMU command line, so `systemctl cat` shows exactly what runs. It starts on boot without Deploy. Change `deploy.toml` and run `up` instead of editing the unit.
+The unit `verirelay-<instance>.service` holds the full QEMU command line, so `systemctl cat` shows exactly what runs. It starts on boot without VeriDeploy. Change `deploy.toml` and run `up` instead of editing the unit.
 
 Several instances can run on one host: give each its own directory, `instance` and `network.forward`. Instances that share a Bootstrap get the same Runtime Config from VeriProv. `plan` and `up` refuse to replace a unit generated from another config file, so two instances with the same name cannot overwrite each other.
 
-Logs: `journalctl -u verirelay-<instance>`.
+## Systemd manager
+
+Who runs `plan` and `up` decides where the unit goes:
+
+| Run as | Unit | QEMU runs as | Logs |
+| --- | --- | --- | --- |
+| root | `/etc/systemd/system/verirelay-<instance>.service` | root | `journalctl -u verirelay-<instance>` |
+| any other user | `~/.config/systemd/user/verirelay-<instance>.service` (`$XDG_CONFIG_HOME` when set), run by `systemctl --user` | that user | `journalctl --user -u verirelay-<instance>` |
+
+A user's QEMU needs access to `/dev/kvm` and `/dev/sev`. A user unit starts at boot only when lingering is on (`loginctl enable-linger`).
+
+`up` records the manager in `plan.json`; `status` and `down` use the recorded one, whoever runs them.
 
 ## Release checks
 
@@ -127,10 +138,9 @@ When the Bootstrap changed, for example after VeriProv got a new identity key, `
 
 | Check | Passes when |
 | --- | --- |
-| Files | Only root can change the config file, the Bootstrap, QEMU, the boot files and `config.img`, and every directory above them. QEMU runs as root, so a user who could change these could run their own guest as root. QEMU is not run before this passes. |
 | SEV-SNP | `/dev/kvm` and `/dev/sev` exist and `kvm_amd` has SEV-SNP enabled. |
 | QEMU | `qemu -object help` lists `sev-snp-guest`. |
-| Port | `network.forward` is free, or held by this instance's own unit, launched by `up` with the same address. |
+| Port | `network.forward` is free, or held by this instance's own unit, launched by `up` with the same address and manager. |
 | Memory | `machine.memory` fits the host's memory. |
 | VeriProv | The Bootstrap's VeriProv answers `/readyz` over TLS with this host's CA roots. The CVM checks the certificate with its own CA bundle. |
 | AMD KDS | `https://kdsintf.amd.com` is reachable. The CVM fetches its VCEK there. |
@@ -149,7 +159,7 @@ When `/readyz` stays unavailable, `up` reads the unit's journal since the restar
 | `provisioning unavailable` with `x509:` | The CVM does not trust VeriProv's TLS certificate. |
 | `provisioning unavailable` | The CVM cannot reach VeriProv. |
 | `fetch AMD KDS resource` | The CVM cannot fetch its VCEK from AMD KDS. |
-| `qemu-system-x86_64:` | QEMU failed to start the CVM. |
+| `qemu-system-x86_64:` | QEMU failed to start the CVM, for example without access to `/dev/kvm` or `/dev/sev`. |
 
 ## Status checks
 
@@ -157,7 +167,7 @@ When `/readyz` stays unavailable, `up` reads the unit's journal since the restar
 
 - the unit is active and equals the one `up` installed;
 - `/readyz` answers 200;
-- a fresh attestation binds the nonce Deploy sent;
+- a fresh attestation binds the nonce VeriDeploy sent;
 - its measurement and `HOST_DATA` equal what `up` launched;
 - the Bootstrap it discloses hashes to that `HOST_DATA`.
 
@@ -169,4 +179,4 @@ When `/readyz` stays unavailable, `up` reads the unit's journal since the restar
 | --- | --- |
 | 0 | Success. |
 | 1 | A check failed. |
-| 2 | Usage error, an invalid config file, or `up` or `down` without root. |
+| 2 | Usage error or an invalid config file. |
