@@ -5,13 +5,13 @@
 ## 命令
 
 ```sh
-deploy init   [-c FILE] [--template]
-deploy fetch  [-c FILE]
-deploy plan   [-c FILE]
-deploy up     [-c FILE] [--restart] [--timeout DUR]
-deploy down   [-c FILE]
-deploy status [-c FILE]
-deploy version
+verideploy init   [-c FILE] [--template]
+verideploy fetch  [-c FILE]
+verideploy plan   [-c FILE]
+verideploy up     [-c FILE] [--restart] [--timeout DUR]
+verideploy down   [-c FILE]
+verideploy status [-c FILE]
+verideploy version
 ```
 
 `-c` 指定实例的配置文件，默认是 `deploy.toml`。配置文件所在目录就是实例目录。

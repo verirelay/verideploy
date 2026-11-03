@@ -57,7 +57,7 @@ func newInitEnv(t *testing.T, latest, input string, profiles ...string) *initEnv
 func (e *initEnv) expect(t *testing.T, code int, args ...string) {
 	t.Helper()
 	if got := e.app.Run(t.Context(), append([]string{"init", "-c", e.config}, args...)); got != code {
-		t.Fatalf("deploy init %v = %d, want %d\nstdout:\n%s\nstderr:\n%s", args, got, code, e.out.String(), e.err.String())
+		t.Fatalf("verideploy init %v = %d, want %d\nstdout:\n%s\nstderr:\n%s", args, got, code, e.out.String(), e.err.String())
 	}
 }
 
@@ -119,7 +119,7 @@ func TestInitInteractive(t *testing.T) {
 		"must be an HTTPS origin",
 		`Bootstrap with profile "", HOST_DATA `+hex.EncodeToString(hostData[:]),
 		"vCPU count must be a positive whole number",
-		"Next: sudo deploy fetch, then deploy plan.",
+		"Next: sudo verideploy fetch, then verideploy plan.",
 	)
 	c, err := config.Load(e.config)
 	if err != nil {
@@ -145,7 +145,7 @@ func TestInitVeriProvUnreachable(t *testing.T) {
 	// A VeriProv that cannot be reached is kept with a warning.
 	e := newInitEnv(t, tag, "\n\nhttps://127.0.0.1:1\n\n\n\n\n")
 	e.expect(t, 0)
-	e.contains(t, "deploy fetch will try again", "Bootstrap profile: ")
+	e.contains(t, "verideploy fetch will try again", "Bootstrap profile: ")
 	c, err := config.Load(e.config)
 	if err != nil || c.VeriProv != "https://127.0.0.1:1" {
 		t.Fatalf("%+v, %v", c, err)

@@ -141,7 +141,7 @@ func TestResolveRejects(t *testing.T) {
 	}
 	moved := c
 	moved.VeriProv = "https://veriprov.example.com"
-	if _, err := Resolve(moved, r, []byte(fake.Bootstrap)); err == nil || !strings.Contains(err.Error(), "run deploy fetch") {
+	if _, err := Resolve(moved, r, []byte(fake.Bootstrap)); err == nil || !strings.Contains(err.Error(), "run verideploy fetch") {
 		t.Fatalf("accepted the Bootstrap of another VeriProv: %v", err)
 	}
 }

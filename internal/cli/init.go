@@ -22,7 +22,7 @@ import (
 	"github.com/verirelay/deploy/internal/release"
 )
 
-// answers are the values deploy init writes.
+// answers are the values verideploy init writes.
 type answers struct {
 	Instance, Release, VeriProv, Profile, Memory, Forward string
 	VCPUs                                                 int
@@ -46,7 +46,7 @@ func (a *App) init(ctx context.Context, args []string) int {
 		return exitUsage
 	}
 	if fs.NArg() > 0 {
-		_, _ = fmt.Fprintf(a.Err, "Unexpected argument %q. Use deploy -h.\n", fs.Arg(0))
+		_, _ = fmt.Fprintf(a.Err, "Unexpected argument %q. Use verideploy -h.\n", fs.Arg(0))
 		return exitUsage
 	}
 	abs, err := filepath.Abs(*path)
@@ -82,11 +82,11 @@ func (a *App) init(ctx context.Context, args []string) int {
 	}
 	switch {
 	case !*template:
-		a.printf("\nWrote %s.\nNext: sudo deploy fetch, then deploy plan.\n", abs)
+		a.printf("\nWrote %s.\nNext: sudo verideploy fetch, then verideploy plan.\n", abs)
 	case ans.Release == "":
 		a.printf("Wrote %s. Fill in veriprov and release: the latest release could not be looked up (%v).\n", abs, lookupErr)
 	default:
-		a.printf("Wrote %s with release %s, the latest.\nFill in veriprov, then run sudo deploy fetch and deploy plan.\n", abs, ans.Release)
+		a.printf("Wrote %s with release %s, the latest.\nFill in veriprov, then run sudo verideploy fetch and verideploy plan.\n", abs, ans.Release)
 	}
 	return exitOK
 }
@@ -209,7 +209,7 @@ func (a *App) askVeriProv(ctx context.Context, read reader) (origin, profile str
 		}
 		var listErr error
 		if entries, listErr = bootstrap.List(ctx, a.Host.HTTP, s); listErr != nil {
-			a.printf("  %v\n  deploy fetch will try again.\n", listErr)
+			a.printf("  %v\n  verideploy fetch will try again.\n", listErr)
 		}
 		return nil
 	})

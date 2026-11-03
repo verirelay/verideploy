@@ -13,13 +13,13 @@ golangci-lint run
 actionlint
 ```
 
-CI uses golangci-lint v2.15.0 and actionlint v1.7.12.
+CI uses golangci-lint v2.15.0 and actionlint v1.7.12. `make release` runs nfpm v2.48.0, and CI installs and removes the `.deb` it builds.
 
 | Target | Action |
 | --- | --- |
-| `make build` | Build `dist/deploy` |
+| `make build` | Build `dist/verideploy` |
 | `make check` | Run tests, build and lint |
-| `make release VERSION=<tag>` | Build `deploy-linux-amd64` and `SHA256SUMS` into `dist/release` |
+| `make release VERSION=<tag>` | Build `verideploy-linux-amd64`, its `.deb` and `.rpm` (nfpm, configured in `nfpm.yaml`) and `SHA256SUMS` into `dist/release` |
 
 Pushing a `v*` tag starts the release workflow, which:
 

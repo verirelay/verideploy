@@ -1,4 +1,4 @@
-// Package cli implements the deploy commands.
+// Package cli implements the verideploy commands.
 package cli
 
 import (
@@ -30,14 +30,14 @@ import (
 const Help = `Deploy launches and upgrades VeriRelay CVMs on an AMD SEV-SNP host.
 
 Usage:
-  deploy init   [-c FILE] [options]   Write a new config, asking for each value
-  deploy fetch  [-c FILE]             Download and verify the release
-  deploy plan   [-c FILE]             Check the host and show what up would launch
-  deploy up     [-c FILE] [options]   Install the unit, start the CVM, wait until ready
-  deploy down   [-c FILE]             Stop and disable the CVM
-  deploy status [-c FILE]             Compare what the CVM attests with what up launched
-  deploy version                      Print the version
-  deploy -h                           Show this help
+  verideploy init   [-c FILE] [options]   Write a new config, asking for each value
+  verideploy fetch  [-c FILE]             Download and verify the release and the Bootstrap
+  verideploy plan   [-c FILE]             Check the host and show what up would launch
+  verideploy up     [-c FILE] [options]   Install the unit, start the CVM, wait until ready
+  verideploy down   [-c FILE]             Stop and disable the CVM
+  verideploy status [-c FILE]             Compare what the CVM attests with what up launched
+  verideploy version                      Print the version
+  verideploy -h                           Show this help
 
 Options:
   -c FILE          Instance config (default deploy.toml)
@@ -56,7 +56,7 @@ const (
 
 // App holds what the commands touch. Tests replace every field.
 type App struct {
-	// In carries the answers to deploy init.
+	// In carries the answers to verideploy init.
 	In       io.Reader
 	Out, Err io.Writer
 	Host     host.Host
@@ -86,7 +86,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	}
 	command, ok := commands[args[0]]
 	if !ok {
-		_, _ = fmt.Fprintf(a.Err, "Unknown command %q. Use deploy -h.\n", args[0])
+		_, _ = fmt.Fprintf(a.Err, "Unknown command %q. Use verideploy -h.\n", args[0])
 		return exitUsage
 	}
 	var o options
@@ -106,7 +106,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return exitUsage
 	}
 	if fs.NArg() > 0 {
-		_, _ = fmt.Fprintf(a.Err, "Unexpected argument %q. Use deploy -h.\n", fs.Arg(0))
+		_, _ = fmt.Fprintf(a.Err, "Unexpected argument %q. Use verideploy -h.\n", fs.Arg(0))
 		return exitUsage
 	}
 	c, err := config.Load(o.config)
@@ -207,11 +207,11 @@ func (a *App) resolve(ctx context.Context, c config.Config) (resolved, bool) {
 	var out resolved
 	r, err := open(c, releaseDir(c))
 	if err != nil {
-		_, _ = fmt.Fprintf(a.Err, "%v\nRun deploy fetch first, or place the release in %s.\n", err, releaseDir(c))
+		_, _ = fmt.Fprintf(a.Err, "%v\nRun verideploy fetch first, or place the release in %s.\n", err, releaseDir(c))
 		return out, false
 	}
 	if out.bootstrap, err = os.ReadFile(c.Bootstrap); err != nil {
-		_, _ = fmt.Fprintf(a.Err, "%v\nRun deploy fetch first: it downloads the Bootstrap from %s.\n", err, c.VeriProv)
+		_, _ = fmt.Fprintf(a.Err, "%v\nRun verideploy fetch first: it downloads the Bootstrap from %s.\n", err, c.VeriProv)
 		return out, false
 	}
 	p, err := plan.Resolve(c, r, out.bootstrap)
@@ -298,7 +298,7 @@ func (a *App) needRoot(command string) bool {
 	if a.Euid() == 0 {
 		return true
 	}
-	_, _ = fmt.Fprintf(a.Err, "deploy %s changes systemd units and needs root.\n", command)
+	_, _ = fmt.Fprintf(a.Err, "verideploy %s changes systemd units and needs root.\n", command)
 	return false
 }
 
@@ -350,7 +350,7 @@ func (a *App) up(ctx context.Context, c config.Config, o options) int {
 	defer cancel()
 	err := probe.WaitReady(waitCtx, a.HTTP, probe.BaseURL(p.Forward), a.PollInterval)
 	if err == nil {
-		a.printf("Ready. deploy status compares what it attests with this plan.\n")
+		a.printf("Ready. verideploy status compares what it attests with this plan.\n")
 		return exitOK
 	}
 	_, _ = fmt.Fprintf(a.Err, "Not ready: %v\n", err)
@@ -380,7 +380,7 @@ func (a *App) status(ctx context.Context, c config.Config, _ options) int {
 		return a.fail(err)
 	}
 	if p.Version == "" {
-		return a.fail(errors.New("no plan.json: run deploy up first, since status compares against what up launched"))
+		return a.fail(errors.New("no plan.json: run verideploy up first, since status compares against what up launched"))
 	}
 	unit := plan.UnitName(p.Instance)
 	ok := true

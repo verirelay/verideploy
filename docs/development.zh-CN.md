@@ -13,13 +13,13 @@ golangci-lint run
 actionlint
 ```
 
-CI 使用 golangci-lint v2.15.0 和 actionlint v1.7.12。
+CI 使用 golangci-lint v2.15.0 和 actionlint v1.7.12。`make release` 调用 nfpm v2.48.0，CI 会安装并卸载它打出的 `.deb`。
 
 | Target | 作用 |
 | --- | --- |
-| `make build` | 构建 `dist/deploy` |
+| `make build` | 构建 `dist/verideploy` |
 | `make check` | 运行测试、构建和 lint |
-| `make release VERSION=<tag>` | 把 `deploy-linux-amd64` 和 `SHA256SUMS` 构建到 `dist/release` |
+| `make release VERSION=<tag>` | 把 `verideploy-linux-amd64`、它的 `.deb` 和 `.rpm`（由 nfpm 按 `nfpm.yaml` 打包）以及 `SHA256SUMS` 构建到 `dist/release` |
 
 推送 `v*` tag 会触发 release workflow，它会：
 

@@ -1,7 +1,7 @@
 name: release
 
-# Publishes the deploy binary and SHA256SUMS to a GitHub Release, with a
-# GitHub artifact attestation for each of them.
+# Publishes the verideploy binary, its .deb and .rpm packages and SHA256SUMS
+# to a GitHub Release, with a GitHub artifact attestation for each of them.
 
 on:
   push:
@@ -57,13 +57,13 @@ jobs:
           notes="$(cat <<'EOF'
           Deploy launches and upgrades VeriRelay CVMs on your AMD SEV-SNP host from a published release, and checks that the running CVM attests what it launched.
 
-          Download `deploy-linux-amd64` to the host. See the [README](https://github.com/@REPO@/blob/@TAG@/README.md) for the quick start and the [CLI reference](https://github.com/@REPO@/blob/@TAG@/docs/cli.md) for every command.
+          Install `verideploy_amd64.deb` (Debian, Ubuntu) or `verideploy_x86_64.rpm` (RHEL, Fedora, SUSE), or copy `verideploy-linux-amd64` to `/usr/local/bin/verideploy`. See the [README](https://github.com/@REPO@/blob/@TAG@/README.md) for the quick start and the [CLI reference](https://github.com/@REPO@/blob/@TAG@/docs/cli.md) for every command.
 
           ## Verify
 
           ```bash
           sha256sum --check --ignore-missing SHA256SUMS
-          gh attestation verify deploy-linux-amd64 \
+          gh attestation verify verideploy_amd64.deb \
             --repo @REPO@ \
             --signer-workflow @REPO@/.github/workflows/release.yml
           ```

@@ -138,7 +138,7 @@ var rules = []rule{
 		return fmt.Sprintf("VeriProv refused this CVM: its Attestation policy lacks measurement %s, or none of its deployments has HOST_DATA %s. VeriProv's log names which.", p.Measurement, p.HostData)
 	}},
 	{[][]string{{"bootstrap does not match HOST_DATA"}}, func(p plan.Plan) string {
-		return fmt.Sprintf("%s and the unit's host-data disagree. Run deploy up again.", p.ConfigDisk)
+		return fmt.Sprintf("%s and the unit's host-data disagree. Run verideploy up again.", p.ConfigDisk)
 	}},
 	{[][]string{{"provision envelope signature rejected"}}, func(p plan.Plan) string {
 		return fmt.Sprintf("VeriProv at %s signs with a key other than the Bootstrap's identity_public_key: the Bootstrap was issued by another VeriProv.", p.VeriProv)

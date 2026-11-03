@@ -5,13 +5,13 @@ English | [简体中文](cli.zh-CN.md)
 ## Commands
 
 ```sh
-deploy init   [-c FILE] [--template]
-deploy fetch  [-c FILE]
-deploy plan   [-c FILE]
-deploy up     [-c FILE] [--restart] [--timeout DUR]
-deploy down   [-c FILE]
-deploy status [-c FILE]
-deploy version
+verideploy init   [-c FILE] [--template]
+verideploy fetch  [-c FILE]
+verideploy plan   [-c FILE]
+verideploy up     [-c FILE] [--restart] [--timeout DUR]
+verideploy down   [-c FILE]
+verideploy status [-c FILE]
+verideploy version
 ```
 
 `-c` names the instance's config file, `deploy.toml` by default. Its directory is the instance directory.

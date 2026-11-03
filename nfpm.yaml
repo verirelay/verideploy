@@ -1,0 +1,25 @@
+# Packages verideploy as .deb and .rpm. make release sets VERSION.
+name: verideploy
+arch: amd64
+platform: linux
+version: ${VERSION}
+section: admin
+priority: optional
+maintainer: VeriRelay <zilingmio@gmail.com>
+description: Launches and upgrades VeriRelay CVMs on an AMD SEV-SNP host from a published release.
+vendor: VeriRelay
+homepage: https://github.com/verirelay/deploy
+license: Apache-2.0
+contents:
+  - src: dist/release/verideploy-linux-amd64
+    dst: /usr/bin/verideploy
+    file_info:
+      mode: 0755
+  - src: LICENSE
+    dst: /usr/share/doc/verideploy/LICENSE
+    file_info:
+      mode: 0644
+  - src: README.md
+    dst: /usr/share/doc/verideploy/README.md
+    file_info:
+      mode: 0644

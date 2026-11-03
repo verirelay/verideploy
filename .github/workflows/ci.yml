@@ -49,6 +49,17 @@ jobs:
       - name: build
         run: make build
 
+      # Install the .deb on the runner itself, then remove it again.
+      - name: packages
+        run: |
+          set -euo pipefail
+          make release VERSION=v0.0.0-ci
+          sudo apt-get install -y ./dist/release/verideploy_amd64.deb
+          verideploy version
+          dpkg -L verideploy
+          sudo apt-get remove -y verideploy
+          ! command -v verideploy
+
       # YAML parsing alone cannot catch workflow mistakes; only actionlint does.
       - name: actionlint
         run: |
