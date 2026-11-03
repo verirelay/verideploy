@@ -1,0 +1,4 @@
+github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=
+github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
+github.com/verirelay/protocol v0.1.0 h1:LXvu1IpDiKPcCKo48seGXQZrxAq++i4hUZHWfbrDXFM=
+github.com/verirelay/protocol v0.1.0/go.mod h1:Jh8Bp4ZifTFcYqH+rlzL4FT37DBYnoD6k+nTaZ4ncDI=

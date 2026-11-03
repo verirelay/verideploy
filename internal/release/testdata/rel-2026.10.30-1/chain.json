@@ -1,0 +1,154 @@
+{
+  "version": "verirelay-release-chain/1",
+  "release": {
+    "mode": "publish",
+    "lock_sha256": "50f91fa3af9170a7577d371e7606473aee2995340db392e2895d5c8e73d8db23",
+    "run_url": "https://github.com/verirelay/release/actions/runs/41008931751",
+    "tag": "rel-2026.10.30-1"
+  },
+  "components": {
+    "verirelay": {
+      "repository": "https://github.com/verirelay/verirelay",
+      "commit": "d8aed89cd75dc311f365c1e46003ebef11d32d93"
+    },
+    "veriforge": {
+      "repository": "https://github.com/verirelay/veriforge",
+      "commit": "b8b956250f33782a76b9cf07487000956b7bb3a8"
+    },
+    "ovmf": {
+      "edk2_commit": "2970e5699ba6267f3384ffab20f96647578aebc8",
+      "patch_sha256": "179e74746315bf3dc751d09bba709d511684dab4629489bc02e6feb0d074ab93",
+      "source_lock_sha256": "05d8506531cbb4a12b698f0b099e659435984fde7b23ee69570d654dfd4c3fcb"
+    }
+  },
+  "launch": {
+    "version": "verirelay-launch-profile/1",
+    "measurement_profile": "sev-snp-qemu-direct-boot/1",
+    "vcpu_type": "EPYC-v4",
+    "kernel_append": "console=ttyS0 quiet panic=1"
+  },
+  "artifacts": {
+    "initrd.img": {
+      "sha256": "b6df2844fc1af9e0028b3c918d4c66dac2d3b7544e39247f9f30e20b092c8267",
+      "size": 9041724
+    },
+    "vmlinuz": {
+      "sha256": "89d56b6b756e76bedc2a92a3a1012d546108e1dc92dd7bdc1be4b00f73d4ea11",
+      "size": 16871936
+    },
+    "OVMF.fd": {
+      "sha256": "fb7f213b2704f822dea2f6c25e166ed79a052e514cababf141ee71d647537a4c",
+      "size": 4194304
+    },
+    "verirelay-linux-amd64": {
+      "sha256": "0a04ffb716295f824cfac2273120b77673b02cf77bea0eff3de5a44fe333a6e9",
+      "size": 16936556
+    },
+    "build-report.json": {
+      "sha256": "a8bf62070b62246484bf339281e6d39702d066e8a5f812126629ebf6e33b3ef8",
+      "size": 2384
+    },
+    "artifacts.lock": {
+      "sha256": "37ff2301a186ec84659985964d72a8a1bb488781cb41323695e56e4e9fce4f58",
+      "size": 6314
+    },
+    "SHA256SUMS": {
+      "sha256": "fc984ec54203a6150874d3ef42341e2f71842bc9537eefe39ed94232ac540754",
+      "size": 568
+    },
+    "launch-measurement.json": {
+      "sha256": "f0485820c2fc295897d6efe5c887f5833d669153665ce65825cf319d24305f85",
+      "size": 2492
+    }
+  },
+  "provenance": {
+    "subjects": [
+      "OVMF.fd",
+      "SHA256SUMS",
+      "artifacts.lock",
+      "build-report.json",
+      "initrd.img",
+      "launch-measurement.json",
+      "verirelay-linux-amd64",
+      "vmlinuz"
+    ],
+    "verified_against_lock": true
+  },
+  "launch_measurements": [
+    {
+      "vcpus": 1,
+      "measurement": "c47cad1c550526c9048c31f640d6b89d276c54afd5c28a858cced58127b25bbe1c0a38669f44aabaf8610b4191c2203c",
+      "params": {
+        "mode": "snp",
+        "vmm_type": "QEMU",
+        "vcpu_type": "EPYC-v4",
+        "guest_features": "0x1",
+        "kernel_append": "console=ttyS0 quiet panic=1"
+      },
+      "tool": {
+        "name": "sev-snp-measure",
+        "version": "0.0.13"
+      }
+    },
+    {
+      "vcpus": 2,
+      "measurement": "eaa064fec9d381232aa5801744c994f33c2e154372bd7495c143c2884e640fdfb2f9ca4be58ef1b37c958f56e875639e",
+      "params": {
+        "mode": "snp",
+        "vmm_type": "QEMU",
+        "vcpu_type": "EPYC-v4",
+        "guest_features": "0x1",
+        "kernel_append": "console=ttyS0 quiet panic=1"
+      },
+      "tool": {
+        "name": "sev-snp-measure",
+        "version": "0.0.13"
+      }
+    },
+    {
+      "vcpus": 4,
+      "measurement": "8708c656f3b160ffdb4d78ca471345bb2a3ea939572268b18a9eed0cf8731f20534f4f2f12408f3e64edd398d3f26435",
+      "params": {
+        "mode": "snp",
+        "vmm_type": "QEMU",
+        "vcpu_type": "EPYC-v4",
+        "guest_features": "0x1",
+        "kernel_append": "console=ttyS0 quiet panic=1"
+      },
+      "tool": {
+        "name": "sev-snp-measure",
+        "version": "0.0.13"
+      }
+    },
+    {
+      "vcpus": 8,
+      "measurement": "72d1b304b2c9b2fc237251cca3732bda33979492d5c179ee5aea5de601ddc05c06443e2ca87cf7c42686e6ce8c846906",
+      "params": {
+        "mode": "snp",
+        "vmm_type": "QEMU",
+        "vcpu_type": "EPYC-v4",
+        "guest_features": "0x1",
+        "kernel_append": "console=ttyS0 quiet panic=1"
+      },
+      "tool": {
+        "name": "sev-snp-measure",
+        "version": "0.0.13"
+      }
+    },
+    {
+      "vcpus": 16,
+      "measurement": "a4979a26b578b2e4a1fbadac136ab3a1c2613dc262bfd0b3c2a5b5cfde0a480781b81d9bef1baf972958792d5d85706c",
+      "params": {
+        "mode": "snp",
+        "vmm_type": "QEMU",
+        "vcpu_type": "EPYC-v4",
+        "guest_features": "0x1",
+        "kernel_append": "console=ttyS0 quiet panic=1"
+      },
+      "tool": {
+        "name": "sev-snp-measure",
+        "version": "0.0.13"
+      }
+    }
+  ]
+}

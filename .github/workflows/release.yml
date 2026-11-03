@@ -1,0 +1,77 @@
+name: release
+
+# Publishes the deploy binary and SHA256SUMS to a GitHub Release, with a
+# GitHub artifact attestation for each of them.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to release, for example v0.1.0
+        required: true
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  binaries:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version: '1.26.10'
+          cache: true
+
+      - name: test
+        run: go test ./...
+
+      - name: build
+        run: make release VERSION="$RELEASE_TAG"
+
+      - name: attest provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
+        with:
+          subject-path: dist/release/*
+
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # The quoted heredoc keeps Markdown backticks literal; @REPO@ and @TAG@ are filled in below.
+          notes="$(cat <<'EOF'
+          Deploy launches and upgrades VeriRelay CVMs on your AMD SEV-SNP host from a published release, and checks that the running CVM attests what it launched.
+
+          Download `deploy-linux-amd64` to the host. See the [README](https://github.com/@REPO@/blob/@TAG@/README.md) for the quick start and the [CLI reference](https://github.com/@REPO@/blob/@TAG@/docs/cli.md) for every command.
+
+          ## Verify
+
+          ```bash
+          sha256sum --check --ignore-missing SHA256SUMS
+          gh attestation verify deploy-linux-amd64 \
+            --repo @REPO@ \
+            --signer-workflow @REPO@/.github/workflows/release.yml
+          ```
+          EOF
+          )"
+          notes="${notes//@REPO@/"$GITHUB_REPOSITORY"}"
+          notes="${notes//@TAG@/"$RELEASE_TAG"}"
+          printf '%s\n' "$notes" > "$RUNNER_TEMP/RELEASE_NOTES.md"
+          # Generated notes append the changelog link after ours.
+          gh release create "$RELEASE_TAG" dist/release/* --verify-tag --title "$RELEASE_TAG" \
+            --notes-file "$RUNNER_TEMP/RELEASE_NOTES.md" --generate-notes

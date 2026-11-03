@@ -1,0 +1,57 @@
+[
+  {
+    "statement": {
+      "version": "verirelay-build-record/1",
+      "repository": "https://github.com/verirelay/release",
+      "git_commit": "3648c29c94590db1bc37e90be1b74fe2e5b24da2",
+      "git_tag": "rel-2026.10.30-1",
+      "measurement": "c47cad1c550526c9048c31f640d6b89d276c54afd5c28a858cced58127b25bbe1c0a38669f44aabaf8610b4191c2203c",
+      "committed_at": "2026-10-30T05:30:01Z"
+    },
+    "signature": "mV2cUPfBpAuNIbjyyIVjPNsYnifQ4TsDav6BJ8m0_TT1jMENwDNCAYkQ8N2oCLX-TziwSyASpSh8Si5TWRjlDQ"
+  },
+  {
+    "statement": {
+      "version": "verirelay-build-record/1",
+      "repository": "https://github.com/verirelay/release",
+      "git_commit": "3648c29c94590db1bc37e90be1b74fe2e5b24da2",
+      "git_tag": "rel-2026.10.30-1",
+      "measurement": "eaa064fec9d381232aa5801744c994f33c2e154372bd7495c143c2884e640fdfb2f9ca4be58ef1b37c958f56e875639e",
+      "committed_at": "2026-10-30T05:30:01Z"
+    },
+    "signature": "S2MRjWCeLdFhm-NHNpE8Ggx-eSjl_BFflaFyOjkp99Y58S4CSEse92GHEfWJ7T2AGpA_dAdcqIcRmUyiF2-lAA"
+  },
+  {
+    "statement": {
+      "version": "verirelay-build-record/1",
+      "repository": "https://github.com/verirelay/release",
+      "git_commit": "3648c29c94590db1bc37e90be1b74fe2e5b24da2",
+      "git_tag": "rel-2026.10.30-1",
+      "measurement": "8708c656f3b160ffdb4d78ca471345bb2a3ea939572268b18a9eed0cf8731f20534f4f2f12408f3e64edd398d3f26435",
+      "committed_at": "2026-10-30T05:30:01Z"
+    },
+    "signature": "Hb0pHIBnLpkDLw09R1djIqxedAK0NjquYX9SaEIlvD8Gq3trlE5To8K6YluPNpcl_DjX7zSppp1s6U8bYMaDAg"
+  },
+  {
+    "statement": {
+      "version": "verirelay-build-record/1",
+      "repository": "https://github.com/verirelay/release",
+      "git_commit": "3648c29c94590db1bc37e90be1b74fe2e5b24da2",
+      "git_tag": "rel-2026.10.30-1",
+      "measurement": "72d1b304b2c9b2fc237251cca3732bda33979492d5c179ee5aea5de601ddc05c06443e2ca87cf7c42686e6ce8c846906",
+      "committed_at": "2026-10-30T05:30:01Z"
+    },
+    "signature": "Iix5qy7sBockCTddFVhaDlN3KNdLFaX4E2WqkRf_YwbRtzgLgaMk4WQj4mHUS-BcujJVEdlzve41c7FiUtJzBA"
+  },
+  {
+    "statement": {
+      "version": "verirelay-build-record/1",
+      "repository": "https://github.com/verirelay/release",
+      "git_commit": "3648c29c94590db1bc37e90be1b74fe2e5b24da2",
+      "git_tag": "rel-2026.10.30-1",
+      "measurement": "a4979a26b578b2e4a1fbadac136ab3a1c2613dc262bfd0b3c2a5b5cfde0a480781b81d9bef1baf972958792d5d85706c",
+      "committed_at": "2026-10-30T05:30:01Z"
+    },
+    "signature": "RTbipbyjOtrMb_3XvZVpfDMfltNpA9gteWhXJHOsEd9NoAcrVVV7kTrqdmoQ-YPwgu4hfa-ztvcaPTxc0a04CA"
+  }
+]
