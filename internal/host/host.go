@@ -206,10 +206,25 @@ func (h Host) State(ctx context.Context, user bool, unit string) string {
 func (h Host) Systemctl(ctx context.Context, user bool, args ...string) error {
 	args = manager(user, args...)
 	out, err := h.Run(ctx, "systemctl", args...)
-	if err != nil {
-		return fmt.Errorf("systemctl %s: %w: %s", strings.Join(args, " "), err, bytes.TrimSpace(out))
+	if err == nil {
+		return nil
 	}
-	return nil
+	err = fmt.Errorf("systemctl %s: %w: %s", strings.Join(args, " "), err, bytes.TrimSpace(out))
+	if user && bytes.Contains(out, []byte("Failed to connect to")) {
+		err = fmt.Errorf("%w\nThe user's systemd manager cannot be reached. It runs while the user is logged in, and always once lingering is on (loginctl enable-linger)", err)
+	}
+	return err
+}
+
+// RuntimeDir returns XDG_RUNTIME_DIR for the user's systemd manager when it
+// is unset: /run/user/<uid>, where systemd keeps it while that manager runs.
+// sudo -u USER -i and su open no login session, so they leave it unset.
+func (h Host) RuntimeDir(uid int) string {
+	dir := h.path(fmt.Sprintf("/run/user/%d", uid))
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+		return ""
+	}
+	return fmt.Sprintf("/run/user/%d", uid)
 }
 
 // Journal returns the messages of unit since since, one per line.

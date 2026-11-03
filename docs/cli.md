@@ -105,7 +105,7 @@ Who runs `plan` and `up` decides where the unit goes:
 | root | `/etc/systemd/system/verirelay-<instance>.service` | root | `journalctl -u verirelay-<instance>` |
 | any other user | `~/.config/systemd/user/verirelay-<instance>.service` (`$XDG_CONFIG_HOME` when set), run by `systemctl --user` | that user | `journalctl --user -u verirelay-<instance>` |
 
-A user's QEMU needs access to `/dev/kvm` and `/dev/sev`. A user unit starts at boot only when lingering is on (`loginctl enable-linger`).
+A user's QEMU needs access to `/dev/kvm` and `/dev/sev`. A user unit starts at boot only when lingering is on (`loginctl enable-linger`). When the shell has no `XDG_RUNTIME_DIR`, as after `sudo -u <user> -i` or `su`, VeriDeploy uses `/run/user/<uid>` to reach the user's manager.
 
 `up` records the manager in `plan.json`; `status` and `down` use the recorded one, whoever runs them.
 
@@ -159,7 +159,8 @@ When `/readyz` stays unavailable, `up` reads the unit's journal since the restar
 | `provisioning unavailable` with `x509:` | The CVM does not trust VeriProv's TLS certificate. |
 | `provisioning unavailable` | The CVM cannot reach VeriProv. |
 | `fetch AMD KDS resource` | The CVM cannot fetch its VCEK from AMD KDS. |
-| `qemu-system-x86_64:` | QEMU failed to start the CVM, for example without access to `/dev/kvm` or `/dev/sev`. |
+| `Failed to open /dev/sev`, `Could not access KVM kernel module` | The user that runs the unit cannot open `/dev/sev` or `/dev/kvm`. |
+| `qemu-system-x86_64:` | QEMU failed to start the CVM. `up` shows all of QEMU's last messages: the last one is often generic, and the cause comes before it. |
 
 ## Status checks
 

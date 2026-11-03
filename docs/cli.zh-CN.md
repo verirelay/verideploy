@@ -105,7 +105,7 @@ unit 装在哪里，取决于由谁运行 `plan` 和 `up`：
 | root | `/etc/systemd/system/verirelay-<instance>.service` | root | `journalctl -u verirelay-<instance>` |
 | 其他用户 | `~/.config/systemd/user/verirelay-<instance>.service`（设置了 `$XDG_CONFIG_HOME` 时以它为准），由 `systemctl --user` 管理 | 该用户 | `journalctl --user -u verirelay-<instance>` |
 
-以普通用户运行时，QEMU 需要能访问 `/dev/kvm` 和 `/dev/sev`。用户级 unit 只有在开启 lingering（`loginctl enable-linger`）后才会开机自启。
+以普通用户运行时，QEMU 需要能访问 `/dev/kvm` 和 `/dev/sev`。用户级 unit 只有在开启 lingering（`loginctl enable-linger`）后才会开机自启。如果 shell 中没有 `XDG_RUNTIME_DIR`（例如通过 `sudo -u <用户> -i` 或 `su` 切换过来），VeriDeploy 会使用 `/run/user/<uid>` 连接该用户的 systemd。
 
 `up` 会把所用的 manager 记进 `plan.json`；之后无论谁运行 `status` 和 `down`，都按记录的那个来操作。
 
@@ -159,7 +159,8 @@ unit 装在哪里，取决于由谁运行 `plan` 和 `up`：
 | `provisioning unavailable` 且含 `x509:` | CVM 不信任 VeriProv 的 TLS 证书。 |
 | `provisioning unavailable` | CVM 连不上 VeriProv。 |
 | `fetch AMD KDS resource` | CVM 无法从 AMD KDS 获取 VCEK。 |
-| `qemu-system-x86_64:` | QEMU 未能启动 CVM，例如没有 `/dev/kvm` 或 `/dev/sev` 的访问权限。 |
+| `Failed to open /dev/sev`、`Could not access KVM kernel module` | 运行 unit 的用户打不开 `/dev/sev` 或 `/dev/kvm`。 |
+| `qemu-system-x86_64:` | QEMU 未能启动 CVM。`up` 会显示 QEMU 最后输出的全部报错：最后一行往往是笼统的报错，真正的原因在它前面。 |
 
 ## 状态检查
 

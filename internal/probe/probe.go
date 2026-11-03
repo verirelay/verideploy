@@ -157,9 +157,12 @@ var rules = []rule{
 	}},
 }
 
-// Diagnose returns the likely cause of a startup failure and the journal line
-// it is based on, or "" when the journal shows no known failure. An opened
-// readiness gate means provisioning worked, so it outranks every failed
+// deviceDenied marks a QEMU that cannot open /dev/kvm or /dev/sev.
+var deviceDenied = [][]string{{"Failed to open /dev/sev"}, {"Could not access KVM kernel module"}, {"/dev/kvm", "Permission denied"}}
+
+// Diagnose returns the likely cause of a startup failure and the journal
+// lines it is based on, or "" when the journal shows no known failure. An
+// opened readiness gate means provisioning worked, so it outranks every failed
 // attempt; otherwise the most recent known failure counts.
 func Diagnose(journal []byte, p plan.Plan) string {
 	lines := strings.Split(string(journal), "\n")
@@ -168,15 +171,37 @@ func Diagnose(journal []byte, p plan.Plan) string {
 			return explain(gateOpened, p, line)
 		}
 	}
-	qemu := rule{[][]string{{filepath.Base(p.Argv[0]) + ":"}}, func(plan.Plan) string { return "QEMU failed to start the CVM." }}
-	for _, line := range slices.Backward(lines) {
-		for _, r := range slices.Concat(rules, []rule{qemu}) {
-			if r.matches(line) {
-				return explain(r, p, line)
+	qemu := filepath.Base(p.Argv[0]) + ":"
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.Contains(lines[i], qemu) {
+			return qemuFailure(lines[:i+1], qemu)
+		}
+		for _, r := range rules {
+			if r.matches(lines[i]) {
+				return explain(r, p, lines[i])
 			}
 		}
 	}
 	return ""
+}
+
+// qemuFailure explains the run of QEMU messages that ends lines. QEMU's last
+// message is often generic ("failed to initialize kvm: Operation not
+// permitted"); the one naming the cause comes before it.
+func qemuFailure(lines []string, prefix string) string {
+	start := len(lines) - 1
+	for start > 0 && len(lines)-start < 5 && strings.Contains(lines[start-1], prefix) {
+		start--
+	}
+	block := lines[start:]
+	cause := "QEMU failed to start the CVM."
+	if slices.ContainsFunc(block, rule{match: deviceDenied}.matches) {
+		cause = "QEMU cannot open /dev/kvm or /dev/sev: the user that runs the unit needs read and write access to both."
+	}
+	for _, line := range block {
+		cause += "\n  " + clip(strings.TrimSpace(line), 400)
+	}
+	return cause
 }
 
 func (r rule) matches(line string) bool {

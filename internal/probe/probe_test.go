@@ -68,6 +68,12 @@ func TestDiagnose(t *testing.T) {
 		{"latest attempt counts", failed + "provisioning unavailable: dial tcp: i/o timeout\"}\n" + failed + `initialize server: fetch AMD KDS resource: HTTP 503"}`, "AMD KDS"},
 		{"mismatch", failed + `bootstrap does not match HOST_DATA"}`, "host-data disagree"},
 		{"qemu", "qemu-system-x86_64: -object sev-snp-guest,id=sev0: SEV: guest firmware hashes table area is invalid", "QEMU failed"},
+		// QEMU's last line is generic; the cause is the one before, and both are shown.
+		{
+			"sev device", "qemu-system-x86_64: sev_common_kvm_init: Failed to open /dev/sev 'Permission denied'\nqemu-system-x86_64: failed to initialize kvm: Operation not permitted",
+			"cannot open /dev/kvm or /dev/sev: the user that runs the unit needs read and write access to both.\n  qemu-system-x86_64: sev_common_kvm_init: Failed to open /dev/sev 'Permission denied'\n  qemu-system-x86_64: failed to initialize kvm: Operation not permitted",
+		},
+		{"kvm device", "qemu-system-x86_64: Could not access KVM kernel module: Permission denied\nqemu-system-x86_64: failed to initialize kvm: Permission denied", "cannot open /dev/kvm or /dev/sev"},
 		{"unknown", `{"msg":"configuration loaded"}`, ""},
 	} {
 		got := Diagnose([]byte(tc.journal), p)

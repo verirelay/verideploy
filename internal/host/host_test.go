@@ -139,6 +139,33 @@ func TestInstallUnit(t *testing.T) {
 	}
 }
 
+func TestRuntimeDir(t *testing.T) {
+	root := t.TempDir()
+	h := Host{Root: root}
+	if got := h.RuntimeDir(1000); got != "" {
+		t.Fatalf("no manager running: %q", got)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "run/user/1000"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.RuntimeDir(1000); got != "/run/user/1000" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestUnreachableUserManager(t *testing.T) {
+	h := Host{Run: func(context.Context, string, ...string) ([]byte, error) {
+		return []byte("Failed to connect to user scope bus via local transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined"), errors.New("exit status 1")
+	}}
+	err := h.Systemctl(t.Context(), true, "daemon-reload")
+	if err == nil || !strings.Contains(err.Error(), "loginctl enable-linger") {
+		t.Fatalf("%v", err)
+	}
+	if err := h.Systemctl(t.Context(), false, "daemon-reload"); err == nil || strings.Contains(err.Error(), "linger") {
+		t.Fatalf("system manager error: %v", err)
+	}
+}
+
 func TestUserManager(t *testing.T) {
 	r := &runner{active: true}
 	h := Host{Run: r.run}
