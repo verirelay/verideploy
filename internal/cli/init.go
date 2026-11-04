@@ -297,7 +297,8 @@ vcpus = %d
 memory = %s
 
 [network]
-# Host IPv4 address and port forwarded to VeriRelay; point your proxy here.
+# Host IPv4 address and port forwarded to VeriRelay, or an array of them;
+# point your proxy here.
 forward = %s
 `, config.Version, quoteTOML(ans.Instance), releaseNote, quoteTOML(ans.Release), quoteTOML(ans.VeriProv), quoteTOML(ans.Profile),
 		config.DefaultQEMU, config.DefaultReleaseRepository, config.OfficialReleaseKey, config.DefaultRegistry,

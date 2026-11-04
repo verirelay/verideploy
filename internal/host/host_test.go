@@ -89,21 +89,23 @@ func TestPreflight(t *testing.T) {
 		snp       string
 		qemuHelp  string
 		active    bool
-		forward   string
+		forward   plan.Forwards
 		launched  plan.Plan
 		memoryMiB int64
 		veriprov  string
 		failed    string
 	}{
-		{"all pass", "Y", "sev-guest\nsev-snp-guest\n", false, freePort(t), plan.Plan{}, 16384, veriprov.URL, ""},
-		{"snp off", "N", "sev-snp-guest", false, freePort(t), plan.Plan{}, 16384, veriprov.URL, "SEV-SNP"},
-		{"old qemu", "Y", "sev-guest\n", false, freePort(t), plan.Plan{}, 16384, veriprov.URL, "QEMU"},
-		{"port taken", "Y", "sev-snp-guest", false, held.Addr().String(), plan.Plan{}, 16384, veriprov.URL, "Port"},
-		{"port held by own unit", "Y", "sev-snp-guest", true, held.Addr().String(), plan.Plan{Forward: held.Addr().String()}, 16384, veriprov.URL, ""},
-		{"own unit on another port", "Y", "sev-snp-guest", true, held.Addr().String(), plan.Plan{Forward: "127.0.0.1:1"}, 16384, veriprov.URL, "Port"},
-		{"own unit in the other manager", "Y", "sev-snp-guest", true, held.Addr().String(), plan.Plan{Forward: held.Addr().String(), UserUnit: true}, 16384, veriprov.URL, "Port"},
-		{"memory", "Y", "sev-snp-guest", false, freePort(t), plan.Plan{}, 65536, veriprov.URL, "Memory"},
-		{"veriprov down", "Y", "sev-snp-guest", false, freePort(t), plan.Plan{}, 16384, veriprov.URL + "/down", "VeriProv"},
+		{"all pass", "Y", "sev-guest\nsev-snp-guest\n", false, plan.Forwards{freePort(t)}, plan.Plan{}, 16384, veriprov.URL, ""},
+		{"snp off", "N", "sev-snp-guest", false, plan.Forwards{freePort(t)}, plan.Plan{}, 16384, veriprov.URL, "SEV-SNP"},
+		{"old qemu", "Y", "sev-guest\n", false, plan.Forwards{freePort(t)}, plan.Plan{}, 16384, veriprov.URL, "QEMU"},
+		{"port taken", "Y", "sev-snp-guest", false, plan.Forwards{held.Addr().String()}, plan.Plan{}, 16384, veriprov.URL, "Port"},
+		{"second port taken", "Y", "sev-snp-guest", false, plan.Forwards{freePort(t), held.Addr().String()}, plan.Plan{}, 16384, veriprov.URL, "Port"},
+		{"port held by own unit", "Y", "sev-snp-guest", true, plan.Forwards{held.Addr().String()}, plan.Plan{Forward: plan.Forwards{held.Addr().String()}}, 16384, veriprov.URL, ""},
+		{"port added to own unit", "Y", "sev-snp-guest", true, plan.Forwards{held.Addr().String(), freePort(t)}, plan.Plan{Forward: plan.Forwards{held.Addr().String()}}, 16384, veriprov.URL, ""},
+		{"own unit on another port", "Y", "sev-snp-guest", true, plan.Forwards{held.Addr().String()}, plan.Plan{Forward: plan.Forwards{"127.0.0.1:1"}}, 16384, veriprov.URL, "Port"},
+		{"own unit in the other manager", "Y", "sev-snp-guest", true, plan.Forwards{held.Addr().String()}, plan.Plan{Forward: plan.Forwards{held.Addr().String()}, UserUnit: true}, 16384, veriprov.URL, "Port"},
+		{"memory", "Y", "sev-snp-guest", false, plan.Forwards{freePort(t)}, plan.Plan{}, 65536, veriprov.URL, "Memory"},
+		{"veriprov down", "Y", "sev-snp-guest", false, plan.Forwards{freePort(t)}, plan.Plan{}, 16384, veriprov.URL + "/down", "VeriProv"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := &runner{qemuHelp: tc.qemuHelp, active: tc.active}

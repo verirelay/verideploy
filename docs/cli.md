@@ -67,7 +67,7 @@ forward = "127.0.0.1:18081"
 | `profile` | Optional: the profile of the Bootstrap, when your VeriProv serves more than one. Empty selects the one without a profile. |
 | `machine.vcpus` | vCPU count. The release must list a Launch Measurement for it; current releases list 1, 2, 4, 8 and 16. |
 | `machine.memory` | Guest memory, such as `16G` or `4096M`; at least `512M`. |
-| `network.forward` | Host IPv4 address and port forwarded to VeriRelay. Use a loopback address behind your proxy. |
+| `network.forward` | Host IPv4 address and port forwarded to VeriRelay, or an array of them, such as `["127.0.0.1:18081", "0.0.0.0:8443"]`. Every address reaches the same VeriRelay; `up` and `status` probe the first. Use a loopback address behind your proxy. |
 
 Optional keys, placed before `[machine]`:
 
@@ -140,7 +140,7 @@ When the Bootstrap changed, for example after VeriProv got a new identity key, `
 | --- | --- |
 | SEV-SNP | `/dev/kvm` and `/dev/sev` exist and `kvm_amd` has SEV-SNP enabled. |
 | QEMU | `qemu -object help` lists `sev-snp-guest`. |
-| Port | `network.forward` is free, or held by this instance's own unit, launched by `up` with the same address and manager. |
+| Port | Each address of `network.forward` is free, or held by this instance's own unit, launched by `up` with that address and the same manager. |
 | Memory | `machine.memory` fits the host's memory. |
 | VeriProv | The Bootstrap's VeriProv answers `/readyz` over TLS with this host's CA roots. The CVM checks the certificate with its own CA bundle. |
 | AMD KDS | `https://kdsintf.amd.com` is reachable. The CVM fetches its VCEK there. |

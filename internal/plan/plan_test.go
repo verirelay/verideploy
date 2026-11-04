@@ -2,6 +2,7 @@ package plan
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"net/netip"
 	"os"
@@ -29,7 +30,7 @@ var system = Scope{Dir: SystemUnitDir}
 func production() (config.Config, release.Release) {
 	c := config.Config{
 		Dir: dir, Instance: "relay", Release: tag, Bootstrap: dir + "/bootstrap.json", VeriProv: "https://veriprov.verirelay.com",
-		VCPUs: 8, Memory: "16G", MemoryMiB: 16384, Forward: netip.MustParseAddrPort("127.0.0.1:18081"),
+		VCPUs: 8, Memory: "16G", MemoryMiB: 16384, Forward: []netip.AddrPort{netip.MustParseAddrPort("127.0.0.1:18081")},
 		QEMU: config.DefaultQEMU,
 	}
 	r := release.Release{
@@ -145,6 +146,30 @@ func TestUserUnit(t *testing.T) {
 	sys, err := Resolve(c, r, []byte(fake.Bootstrap), system)
 	if err != nil || !slices.Equal(execStart(t, p.Unit), execStart(t, sys.Unit)) {
 		t.Fatalf("user and system units launch differently: %v", err)
+	}
+}
+
+func TestForwards(t *testing.T) {
+	c, r := production()
+	c.Forward = append(c.Forward, netip.MustParseAddrPort("0.0.0.0:8443"))
+	p, err := Resolve(c, r, []byte(fake.Bootstrap), system)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(p.Argv, "user,id=net0,hostfwd=tcp:127.0.0.1:18081-:8080,hostfwd=tcp:0.0.0.0:8443-:8080") {
+		t.Fatalf("argv %q", p.Argv)
+	}
+	if !slices.Equal(p.Forward, Forwards{"127.0.0.1:18081", "0.0.0.0:8443"}) {
+		t.Fatalf("forward %q", p.Forward)
+	}
+	for in, want := range map[string]Forwards{
+		`{"forward":"127.0.0.1:18081"}`:                  {"127.0.0.1:18081"},
+		`{"forward":["127.0.0.1:18081","0.0.0.0:8443"]}`: {"127.0.0.1:18081", "0.0.0.0:8443"},
+	} {
+		var got Plan
+		if err := json.Unmarshal([]byte(in), &got); err != nil || !slices.Equal(got.Forward, want) {
+			t.Fatalf("%s: %q, %v", in, got.Forward, err)
+		}
 	}
 }
 

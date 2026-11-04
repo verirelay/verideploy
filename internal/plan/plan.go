@@ -5,6 +5,7 @@ package plan
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -48,12 +49,26 @@ type Plan struct {
 	Measurement string   `json:"measurement"`
 	HostData    string   `json:"host_data"`
 	VeriProv    string   `json:"veriprov"`
-	Forward     string   `json:"forward"`
+	Forward     Forwards `json:"forward"`
 	ConfigDisk  string   `json:"config_disk"`
 	Argv        []string `json:"argv"`
 	UserUnit    bool     `json:"user_unit"`
 	UnitPath    string   `json:"unit_path"`
 	Unit        string   `json:"unit"`
+}
+
+// Forwards are the host addresses of a Plan; the first is the one probed.
+// It also reads the single string an older VeriDeploy wrote to plan.json, so
+// instances it launched keep passing the port check.
+type Forwards []string
+
+func (f *Forwards) UnmarshalJSON(data []byte) error {
+	var one string
+	if json.Unmarshal(data, &one) == nil {
+		*f = Forwards{one}
+		return nil
+	}
+	return json.Unmarshal(data, (*[]string)(f))
 }
 
 // Owns reports whether unit, an installed unit file, was generated for the
@@ -79,7 +94,7 @@ func ConfigDisk(bootstrap []byte) []byte {
 
 // Resolve derives the Plan for a unit in s. The QEMU options that enter the
 // Launch Measurement come only from r; c chooses the vCPU count, memory,
-// paths and port forward.
+// paths and port forwards.
 func Resolve(c config.Config, r release.Release, bootstrap []byte, s Scope) (Plan, error) {
 	b, err := guest.DecodeBootstrap(bootstrap)
 	if err == nil {
@@ -96,6 +111,12 @@ func Resolve(c config.Config, r release.Release, bootstrap []byte, s Scope) (Pla
 	}
 	hostData := guest.HostData(bootstrap)
 	disk := filepath.Join(c.Dir, "config.img")
+	netdev := "user,id=net0"
+	forwards := make(Forwards, len(c.Forward))
+	for i, ap := range c.Forward {
+		forwards[i] = ap.String()
+		netdev += ",hostfwd=tcp:" + forwards[i] + "-:" + strconv.Itoa(GuestPort)
+	}
 	groups := [][]string{
 		{c.QEMU},
 		{"-enable-kvm", "-cpu", r.VCPUType, "-smp", strconv.Itoa(c.VCPUs), "-m", c.Memory},
@@ -106,7 +127,7 @@ func Resolve(c config.Config, r release.Release, bootstrap []byte, s Scope) (Pla
 		{"-append", r.KernelAppend},
 		{"-drive", "file=" + disk + ",if=virtio,format=raw,readonly=on"},
 		{"-display", "none", "-monitor", "none", "-serial", "stdio"},
-		{"-netdev", "user,id=net0,hostfwd=tcp:" + c.Forward.String() + "-:" + strconv.Itoa(GuestPort), "-device", "virtio-net-pci,netdev=net0"},
+		{"-netdev", netdev, "-device", "virtio-net-pci,netdev=net0"},
 	}
 	p := Plan{
 		Version:     Version,
@@ -118,7 +139,7 @@ func Resolve(c config.Config, r release.Release, bootstrap []byte, s Scope) (Pla
 		Measurement: r.Measurement,
 		HostData:    hex.EncodeToString(hostData[:]),
 		VeriProv:    b.URL,
-		Forward:     c.Forward.String(),
+		Forward:     forwards,
 		ConfigDisk:  disk,
 		UserUnit:    s.User,
 		UnitPath:    filepath.Join(s.Dir, UnitName(c.Instance)),

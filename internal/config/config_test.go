@@ -33,7 +33,7 @@ func TestLoadDefaults(t *testing.T) {
 	if c.Dir != dir || c.Bootstrap != filepath.Join(dir, "bootstrap.json") || c.VeriProv != "https://veriprov.verirelay.com" || c.Profile != "" {
 		t.Fatalf("paths: %+v", c)
 	}
-	if c.MemoryMiB != 16384 || c.Forward.String() != "127.0.0.1:18081" || c.VCPUs != 8 {
+	if c.MemoryMiB != 16384 || len(c.Forward) != 1 || c.Forward[0].String() != "127.0.0.1:18081" || c.VCPUs != 8 {
 		t.Fatalf("machine: %+v", c)
 	}
 	if c.QEMU != DefaultQEMU || c.ReleaseRepository != DefaultReleaseRepository || c.Registry != DefaultRegistry {
@@ -59,6 +59,17 @@ registry = ""
 	}
 }
 
+func TestForwardList(t *testing.T) {
+	data := strings.Replace(valid, `forward = "127.0.0.1:18081"`, `forward = ["127.0.0.1:18081", "10.0.0.5:18081", "0.0.0.0:8443"]`, 1)
+	c, err := Parse([]byte(data), "/srv/relay")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.Forward) != 3 || c.Forward[2].String() != "0.0.0.0:8443" {
+		t.Fatalf("%v", c.Forward)
+	}
+}
+
 func TestRejects(t *testing.T) {
 	for _, tc := range []struct{ name, from, to, dir, want string }{
 		{"unknown key", "[network]", "extra = 1\n[network]", "", "unknown key"},
@@ -72,6 +83,11 @@ func TestRejects(t *testing.T) {
 		{"memory size", `memory = "16G"`, `memory = "256M"`, "", "below"},
 		{"forward ipv6", `forward = "127.0.0.1:18081"`, `forward = "[::1]:18081"`, "", "forward"},
 		{"forward port", `forward = "127.0.0.1:18081"`, `forward = "127.0.0.1:0"`, "", "forward"},
+		{"forward empty", `forward = "127.0.0.1:18081"`, `forward = []`, "", "forward is required"},
+		{"forward number", `forward = "127.0.0.1:18081"`, `forward = [18081]`, "", "array of strings"},
+		{"forward bad item", `forward = "127.0.0.1:18081"`, `forward = ["127.0.0.1:18081", "[::1]:443"]`, "", "forward"},
+		{"forward duplicate", `forward = "127.0.0.1:18081"`, `forward = ["127.0.0.1:18081", "127.0.0.1:18081"]`, "", "overlaps"},
+		{"forward any", `forward = "127.0.0.1:18081"`, `forward = ["127.0.0.1:443", "0.0.0.0:443"]`, "", "overlaps"},
 		{"no veriprov", `veriprov = "https://veriprov.verirelay.com"`, `veriprov = ""`, "", "HTTPS origin"},
 		{"veriprov path", `veriprov = "https://veriprov.verirelay.com"`, `veriprov = "https://veriprov.verirelay.com/v1"`, "", "HTTPS origin"},
 		{"veriprov http", `veriprov = "https://veriprov.verirelay.com"`, `veriprov = "http://veriprov.verirelay.com"`, "", "HTTPS origin"},

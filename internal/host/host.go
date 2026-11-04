@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -59,14 +60,11 @@ type Check struct {
 // Preflight checks that the host can launch p. launched is the Plan up last
 // launched, zero when there is none.
 func (h Host) Preflight(ctx context.Context, c config.Config, p plan.Plan, launched plan.Plan) []Check {
-	return []Check{
-		h.sevSNP(),
-		h.qemu(ctx, c.QEMU),
-		h.port(ctx, p, launched),
-		h.memory(c.MemoryMiB),
-		h.veriprov(ctx, p.VeriProv),
-		h.kds(ctx),
+	checks := []Check{h.sevSNP(), h.qemu(ctx, c.QEMU)}
+	for _, forward := range p.Forward {
+		checks = append(checks, h.port(ctx, p, launched, forward))
 	}
+	return append(checks, h.memory(c.MemoryMiB), h.veriprov(ctx, p.VeriProv), h.kds(ctx))
 }
 
 func (h Host) sevSNP() Check {
@@ -98,9 +96,9 @@ func (h Host) qemu(ctx context.Context, binary string) Check {
 	return c
 }
 
-func (h Host) port(ctx context.Context, p, launched plan.Plan) Check {
-	c := Check{Name: "Port", Detail: p.Forward + " is free"}
-	l, err := (&net.ListenConfig{}).Listen(ctx, "tcp", p.Forward)
+func (h Host) port(ctx context.Context, p, launched plan.Plan, forward string) Check {
+	c := Check{Name: "Port", Detail: forward + " is free"}
+	l, err := (&net.ListenConfig{}).Listen(ctx, "tcp", forward)
 	if err == nil {
 		_ = l.Close()
 		return c
@@ -110,11 +108,11 @@ func (h Host) port(ctx context.Context, p, launched plan.Plan) Check {
 		return c
 	}
 	unit := plan.UnitName(p.Instance)
-	if launched.Forward == p.Forward && launched.UserUnit == p.UserUnit && h.Active(ctx, p.UserUnit, unit) {
-		c.Detail = p.Forward + " is held by " + unit
+	if slices.Contains(launched.Forward, forward) && launched.UserUnit == p.UserUnit && h.Active(ctx, p.UserUnit, unit) {
+		c.Detail = forward + " is held by " + unit
 		return c
 	}
-	c.Err = fmt.Errorf("%s is in use by another process", p.Forward)
+	c.Err = fmt.Errorf("%s is in use by another process", forward)
 	return c
 }
 

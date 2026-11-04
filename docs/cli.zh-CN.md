@@ -67,7 +67,7 @@ forward = "127.0.0.1:18081"
 | `profile` | 可选：VeriProv 提供多个引导文件时，所用引导文件的 profile。留空则选没有 profile 的那个。 |
 | `machine.vcpus` | vCPU 数。release 必须列出它对应的启动度量；当前的 release 包含 1、2、4、8 和 16。 |
 | `machine.memory` | 内存，例如 `16G` 或 `4096M`，最少 `512M`。 |
-| `network.forward` | 转发到 VeriRelay 的宿主机 IPv4 地址和端口。放在代理后面时，用 loopback 地址。 |
+| `network.forward` | 转发到 VeriRelay 的宿主机 IPv4 地址和端口，也可以写成数组，例如 `["127.0.0.1:18081", "0.0.0.0:8443"]`。每个地址都到同一个 VeriRelay；`up` 和 `status` 探测第一个。放在代理后面时，用 loopback 地址。 |
 
 可选键，写在 `[machine]` 之前：
 
@@ -140,7 +140,7 @@ unit 装在哪里，取决于由谁运行 `plan` 和 `up`：
 | --- | --- |
 | SEV-SNP | `/dev/kvm` 和 `/dev/sev` 存在，且 `kvm_amd` 开启了 SEV-SNP。 |
 | QEMU | `qemu -object help` 列出 `sev-snp-guest`。 |
-| Port | `network.forward` 空闲，或者被本实例自己的 unit 占用，且 `up` 启动它时用的是同一个地址和同一个 manager。 |
+| Port | `network.forward` 的每个地址都空闲，或者被本实例自己的 unit 占用，且 `up` 启动它时用了这个地址和同一个 manager。 |
 | Memory | `machine.memory` 不超过宿主机内存。 |
 | VeriProv | 引导文件中的 VeriProv 用本机 CA 根证书通过 TLS 访问时，`/readyz` 返回成功。CVM 用自己的 CA bundle 校验证书。 |
 | AMD KDS | 能访问 `https://kdsintf.amd.com`。CVM 从这里获取 VCEK。 |

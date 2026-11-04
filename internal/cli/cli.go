@@ -235,7 +235,7 @@ func (a *App) resolve(ctx context.Context, c config.Config) (resolved, bool) {
 	a.printf("Release      %s (Build Record signed by %s)\n", p.Release, r.KeyID)
 	a.printf("vCPU         %d\nMemory       %s\n", p.VCPUs, p.Memory)
 	a.printf("Measurement  %s\nHOST_DATA    %s\n", p.Measurement, p.HostData)
-	a.printf("VeriProv     %s\nForward      %s -> guest %d\n", p.VeriProv, p.Forward, plan.GuestPort)
+	a.printf("VeriProv     %s\nForward      %s -> guest %d\n", p.VeriProv, strings.Join(p.Forward, ", "), plan.GuestPort)
 	ok := a.registry(ctx, c, r)
 	a.printf("\nPreflight\n")
 	for _, check := range a.Host.Preflight(ctx, c, p, out.launched) {
@@ -289,7 +289,7 @@ func readPlan(dir string) (plan.Plan, error) {
 		return plan.Plan{}, err
 	}
 	var p plan.Plan
-	if err := json.Unmarshal(data, &p); err != nil || p.Version != plan.Version {
+	if err := json.Unmarshal(data, &p); err != nil || p.Version != plan.Version || len(p.Forward) == 0 {
 		return plan.Plan{}, fmt.Errorf("%s is not a %s file", plan.Path(dir), plan.Version)
 	}
 	return p, nil
@@ -358,7 +358,7 @@ func (a *App) up(ctx context.Context, c config.Config, o options) int {
 	}
 	waitCtx, cancel := context.WithTimeout(ctx, o.timeout)
 	defer cancel()
-	err := probe.WaitReady(waitCtx, a.HTTP, probe.BaseURL(p.Forward), a.PollInterval)
+	err := probe.WaitReady(waitCtx, a.HTTP, probe.BaseURL(p.Forward[0]), a.PollInterval)
 	if err == nil {
 		a.printf("Ready. verideploy status compares what it attests with this plan.\n")
 		return exitOK
@@ -416,7 +416,7 @@ func (a *App) status(ctx context.Context, c config.Config, _ options) int {
 	report(state == "active", "unit %s", state)
 	installed, err := a.Host.InstalledUnit(p)
 	report(err == nil && installed == p.Unit, "installed unit matches plan.json")
-	base := probe.BaseURL(p.Forward)
+	base := probe.BaseURL(p.Forward[0])
 	err = probe.Ready(ctx, a.HTTP, base)
 	report(err == nil, "%s/readyz %s", base, okOr(err))
 	att, err := probe.Attest(ctx, a.HTTP, base)

@@ -52,11 +52,13 @@ type Config struct {
 	VeriProv string
 	Profile  string
 	// Bootstrap is where fetch stores that Bootstrap: bootstrap.json in Dir.
-	Bootstrap         string
-	VCPUs             int
-	Memory            string
-	MemoryMiB         int64
-	Forward           netip.AddrPort
+	Bootstrap string
+	VCPUs     int
+	Memory    string
+	MemoryMiB int64
+	// Forward lists the host addresses forwarded to VeriRelay; VeriDeploy
+	// probes the first.
+	Forward           []netip.AddrPort
 	QEMU              string
 	ReleaseRepository string
 	ReleaseKeys       []ed25519.PublicKey
@@ -79,8 +81,31 @@ type file struct {
 		Memory string `toml:"memory"`
 	} `toml:"machine"`
 	Network struct {
-		Forward string `toml:"forward"`
+		Forward forwardList `toml:"forward"`
 	} `toml:"network"`
+}
+
+// forwardList is network.forward: one address as a string, or an array of
+// them.
+type forwardList []string
+
+func (l *forwardList) UnmarshalTOML(v any) error {
+	switch v := v.(type) {
+	case string:
+		*l = forwardList{v}
+		return nil
+	case []any:
+		*l = make(forwardList, len(v))
+		for i, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return errors.New("network.forward must be a string or an array of strings")
+			}
+			(*l)[i] = s
+		}
+		return nil
+	}
+	return errors.New("network.forward must be a string or an array of strings")
 }
 
 // Load reads path strictly: unknown keys fail. The instance directory is the
@@ -152,7 +177,7 @@ func Parse(data []byte, dir string) (Config, error) {
 	if c.MemoryMiB, err = ParseMemory(c.Memory); err != nil {
 		return Config{}, err
 	}
-	if c.Forward, err = ParseForward(f.Network.Forward); err != nil {
+	if c.Forward, err = parseForwards(f.Network.Forward); err != nil {
 		return Config{}, err
 	}
 	if !pathPattern.MatchString(c.QEMU) {
@@ -250,4 +275,26 @@ func ParseForward(s string) (netip.AddrPort, error) {
 		return netip.AddrPort{}, fmt.Errorf("network.forward %q must be an IPv4 address and port, such as 127.0.0.1:18081", s)
 	}
 	return ap, nil
+}
+
+// parseForwards parses network.forward and rejects addresses that cannot
+// both be bound: the same port on the same address, or on 0.0.0.0.
+func parseForwards(list []string) ([]netip.AddrPort, error) {
+	if len(list) == 0 {
+		return nil, errors.New("network.forward is required")
+	}
+	out := make([]netip.AddrPort, 0, len(list))
+	for _, s := range list {
+		ap, err := ParseForward(s)
+		if err != nil {
+			return nil, err
+		}
+		for _, prev := range out {
+			if prev.Port() == ap.Port() && (prev.Addr() == ap.Addr() || prev.Addr().IsUnspecified() || ap.Addr().IsUnspecified()) {
+				return nil, fmt.Errorf("network.forward %s overlaps %s", ap, prev)
+			}
+		}
+		out = append(out, ap)
+	}
+	return out, nil
 }
